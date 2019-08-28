@@ -8,11 +8,11 @@
 #define ROM_SIZE_INDEX 0x148
 #define RAM_SIZE_INDEX 0x149
 
-void load_cartridge_rom(cartridge *cartridge_p, char *file_name);
-void print_cartridge_values(cartridge *cartridge_p);
-byte get_cartridge_type(byte data);
-byte get_rom_banks(byte data);
-byte get_ram_banks(byte data);
+static void load_cartridge_rom(cartridge *cartridge_p, char *file_name);
+static void print_cartridge_values(cartridge *cartridge_p);
+static byte get_cartridge_type(byte data);
+static byte get_rom_banks(byte data);
+static byte get_ram_banks(byte data);
 
 cartridge *initialize_cartridge(char *file_name){
 
@@ -30,12 +30,12 @@ cartridge *initialize_cartridge(char *file_name){
     cartridge_p->ram_banks = get_ram_banks(cartridge_p->cartridge_memory[RAM_SIZE_INDEX]);  
     cartridge_p->cartridge_type = get_cartridge_type(cartridge_p->cartridge_memory[CARTRIDGE_TYPE_INDEX]); 
 
-    print_cartridge_values(cartridge_p); 
+    //print_cartridge_values(cartridge_p); 
 
     return cartridge_p;
 }
 
-void load_cartridge_rom(cartridge *cartridge_p, char* file_name){
+static void load_cartridge_rom(cartridge *cartridge_p, char* file_name){
 
     FILE *rom_file = fopen(file_name, "rb");
 
@@ -48,7 +48,7 @@ void load_cartridge_rom(cartridge *cartridge_p, char* file_name){
     fclose(rom_file);
 }
 
-byte get_rom_banks(byte data){
+static byte get_rom_banks(byte data){
     
     byte rom_banks;
 
@@ -62,7 +62,7 @@ byte get_rom_banks(byte data){
     return rom_banks;
 }
 
-byte get_ram_banks(byte data){
+static byte get_ram_banks(byte data){
     
     byte ram_banks;
 
@@ -76,7 +76,7 @@ byte get_ram_banks(byte data){
     return ram_banks;
 }
 
-byte get_cartridge_type(byte data){
+static byte get_cartridge_type(byte data){
     
     byte result;
     
@@ -92,7 +92,7 @@ byte get_cartridge_type(byte data){
     return result;
 }
 
-void print_cartridge_values(cartridge *cartridge_p){
+static void print_cartridge_values(cartridge *cartridge_p){
 
     for(int i = 0; i < 100; i++){
         printf("%02x ", cartridge_p->cartridge_memory[i]);

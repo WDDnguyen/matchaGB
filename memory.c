@@ -16,14 +16,14 @@
 #define HRAM_INDEX 0xFF80
 #define INTERRUPT_ENABLE_REGISTER 0xFFFF
 
-void load_rom_to_memory_map(memory_map *memory_p);
-void print_memory(memory_map *memory_p, word address, word printSize);
-void handle_bank_switching(memory_map *memory_p, word address, byte byte);
-void enable_ram_bank(memory_map *memory_p, word address, byte data, byte mbc_type);
-void switch_rom_bank_low(memory_map *memory_p, byte data, byte mbc_type);
-void switch_rom_bank_high(memory_map *memory_p, byte data);
-void switch_ram_bank(memory_map *memory_p, byte data);
-void select_rom_ram_mode(memory_map *memory_p, byte data);
+static void load_rom_to_memory_map(memory_map *memory_p);
+static void print_memory(memory_map *memory_p, word address, word printSize);
+static void handle_bank_switching(memory_map *memory_p, word address, byte byte);
+static void enable_ram_bank(memory_map *memory_p, word address, byte data, byte mbc_type);
+static void switch_rom_bank_low(memory_map *memory_p, byte data, byte mbc_type);
+static void switch_rom_bank_high(memory_map *memory_p, byte data);
+static void switch_ram_bank(memory_map *memory_p, byte data);
+static void select_rom_ram_mode(memory_map *memory_p, byte data);
 
 memory_map *initialize_memory(cartridge *cartride_p){
     
@@ -80,7 +80,7 @@ void write_memory(memory_map *memory_p, word address, byte data){
     }
 }
 
-void load_rom_to_memory_map(memory_map *memory_p){
+static void load_rom_to_memory_map(memory_map *memory_p){
       // load BANK0 in 0x0000 - 0x3FFF and BANK1 in 0x4000 - 0x7FFFF
     if (memory_p->cartridge_p->cartridge_type == 0){
         memcpy(&memory_p->memory, &memory_p->cartridge_p->cartridge_memory, BANK_SIZE * 2);
@@ -91,7 +91,7 @@ void load_rom_to_memory_map(memory_map *memory_p){
     }
 }
 
-void handle_bank_switching(memory_map *memory_p, word address, byte data){
+static void handle_bank_switching(memory_map *memory_p, word address, byte data){
     
     byte mbc_type = memory_p->cartridge_p->cartridge_type;
     // RAM bank switching Enabling
@@ -129,7 +129,7 @@ void handle_bank_switching(memory_map *memory_p, word address, byte data){
     }
 }
 
-void enable_ram_bank(memory_map *memory_p, word address, byte data, byte mbc_type){
+static void enable_ram_bank(memory_map *memory_p, word address, byte data, byte mbc_type){
     
     if (mbc_type == MBC2){
         // additional clause that bit 4 of address must be 0 for MBC2
@@ -147,7 +147,7 @@ void enable_ram_bank(memory_map *memory_p, word address, byte data, byte mbc_typ
     }
 }
 
-void switch_rom_bank_low(memory_map *memory_p, byte data, byte mbc_type){
+static void switch_rom_bank_low(memory_map *memory_p, byte data, byte mbc_type){
     // data (XXXXBBBB) need to grab bits 0-3 for MBC2
     if (mbc_type == MBC2){
         memory_p->current_rom_bank = data & 0xF;
@@ -165,7 +165,7 @@ void switch_rom_bank_low(memory_map *memory_p, byte data, byte mbc_type){
     }
 }
 
-void switch_rom_bank_high(memory_map *memory_p, byte data){
+static void switch_rom_bank_high(memory_map *memory_p, byte data){
     // select ROM bank based on the bit 4 and 5
     // turn off upper 3 bits of current ROM bank
     memory_p->current_rom_bank &= 31;
@@ -178,18 +178,18 @@ void switch_rom_bank_high(memory_map *memory_p, byte data){
     }
 }
 
-void switch_ram_bank(memory_map *memory_p, byte data){
+static void switch_ram_bank(memory_map *memory_p, byte data){
     memory_p->current_ram_bank = data & 0x03;
 }
 
-void select_rom_ram_mode(memory_map *memory_p, byte data){
+static void select_rom_ram_mode(memory_map *memory_p, byte data){
     memory_p->rom_banking = ((data & 0x1) == 0) ? TRUE : FALSE;
     if (memory_p->rom_banking){
         memory_p->current_ram_bank = 0;
     }
 }
 
-void print_memory(memory_map *memory_p, word address, word print_size){
+static void print_memory(memory_map *memory_p, word address, word print_size){
     
     printf("PRINTING MEMORY ADDRESS : %u, SIZE : %u\n", address, print_size);
     // print in columns
