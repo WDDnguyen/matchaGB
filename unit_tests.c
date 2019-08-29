@@ -14,7 +14,7 @@ void test_setup(void){
     cartridge_p = initialize_cartridge(file_name); 
     memory_p = initialize_memory(cartridge_p);
     cpu_p = initialize_cpu(memory_p);
-    
+    initialize_emulator_state(cpu_p, memory_p);
 }
 
 void test_teardown(void){
@@ -40,8 +40,6 @@ MU_TEST(test_initialize_cartridge_tetris){
 }
 
 MU_TEST(test_initialize_emulate_state){
-
-    initialize_emulator_state(cpu_p, memory_p);
 
     mu_check(cpu_p->PC == 0x100);
     mu_check(cpu_p->register_AF.value == 0x01B0);
@@ -98,14 +96,47 @@ MU_TEST(test_initialize_emulate_state){
 
 }
 
+
+MU_TEST(test_read_memory_normal){
+    mu_check(read_memory(memory_p, 0xFF47) == 0xFC);
+}
+
+MU_TEST(test_read_memory_rom_no_switch){
+    mu_check(read_memory(memory_p, 0x4000) == memory_p->memory[0x4000]);
+}
+
+MU_TEST(test_read_memory_external_ram_no_switch){
+    mu_check(read_memory(memory_p, 0xA000) == memory_p->memory[0xA000]);
+}
+
+MU_TEST(test_write_memory_internal_ram){
+    write_memory(memory_p, 0xE000, 0xFF);
+    mu_check(memory_p->memory[0xE000] == 0xFF);
+    mu_check(memory_p->memory[0xE000 - 0x2000] == 0xFF);
+}
+
+MU_TEST(test_write_normal){
+    write_memory(memory_p, 0x9000, 0xFF);
+    mu_check(memory_p->memory[0x9000] == 0xFF);
+}
+
+// MU_TEST(test_write_memory_no_bank_switch){}
+//MU_TEST(test_write_memory_external_ram){}
+
 MU_TEST_SUITE(test_suite){
+    printf("\n");
     MU_SUITE_CONFIGURE(&test_setup, &test_teardown);
     MU_RUN_TEST(test_initialize_cartridge_tetris);
     MU_RUN_TEST(test_initialize_emulate_state);
+    MU_RUN_TEST(test_read_memory_normal);
+    MU_RUN_TEST(test_read_memory_rom_no_switch);
+    MU_RUN_TEST(test_read_memory_external_ram_no_switch);
+    MU_RUN_TEST(test_write_memory_internal_ram);
+    MU_RUN_TEST(test_write_normal);    
 }
 
 int main (int argc, char *argv[]){
-    printf("----------------START TEST----------------");
+    printf("\n----------------START TEST----------------\n");
     MU_RUN_SUITE(test_suite);
     MU_REPORT();
     return 0;
