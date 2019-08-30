@@ -133,8 +133,24 @@ MU_TEST(test_load_8_bit_immediate){
 
 }
 
-MU_TEST(test_load_8_bit){
+MU_TEST(test_load_8_bit_HL){
 
+    mu_check(cpu_p->BC.value == 0x0013);    
+    mu_check(cpu_p->BC.high == 0x00);
+
+    
+    cpu_p->PC = 0x9000;
+    write_memory(cpu_p->memory_p, 0x9000, 0x46);
+    write_memory(cpu_p->memory_p, cpu_p->HL.value, 0x0A);
+    
+    // LD B, HL
+    execute_next_opcode(cpu_p);
+
+    mu_check(cpu_p->BC.high == 0x0A);
+
+}
+
+MU_TEST(test_load_8_bit){
     mu_check(cpu_p->BC.value == 0x0013);    
     mu_check(cpu_p->BC.high == 0x00);
 
@@ -143,10 +159,27 @@ MU_TEST(test_load_8_bit){
     cpu_p->PC = 0x9000;
     write_memory(cpu_p->memory_p, 0x9000, 0x43);
     
+    // LD B, E
     execute_next_opcode(cpu_p);
 
     mu_check(cpu_p->BC.high == 0xD8);
     //mu_check(cpu_p->BC.value == 0x00D8);
+}
+
+MU_TEST(test_load_8_bit_write_to_HL){
+    
+    mu_check(cpu_p->BC.value == 0x0013);    
+    mu_check(cpu_p->BC.low == 0x13);
+
+    cpu_p->HL.value = 0x900A;
+    printf("\n HL VALUE : %04x \n", cpu_p->HL.value);
+    cpu_p->PC = 0x9000;
+    write_memory(cpu_p->memory_p, 0x9000, 0x71);
+
+    // LD (HL), C
+    execute_next_opcode(cpu_p);
+
+    mu_check(cpu_p->memory_p->memory[cpu_p->HL.value] == 0x13);
 
 }
 
@@ -165,6 +198,8 @@ MU_TEST_SUITE(test_suite){
     MU_RUN_TEST(test_write_normal);  
     MU_RUN_TEST(test_load_8_bit_immediate);
     MU_RUN_TEST(test_load_8_bit);
+    MU_RUN_TEST(test_load_8_bit_HL);
+    MU_RUN_TEST(test_load_8_bit_write_to_HL);
 }
 
 int main (int argc, char *argv[]){
