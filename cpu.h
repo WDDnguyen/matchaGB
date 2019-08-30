@@ -6,8 +6,8 @@
 
 typedef union cpu_register {
     struct {
-        byte low;
-        byte high;
+        byte lo;
+        byte hi;
     };
 } cpu_register;
 
