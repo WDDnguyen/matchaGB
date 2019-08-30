@@ -14,11 +14,11 @@ typedef union cpu_register {
 
 typedef struct cpu {
     memory_map *memory_p;
-    cpu_register register_AF;
-    cpu_register register_BC;
-    cpu_register register_DE;
-    cpu_register register_HL;
-    cpu_register register_SP;
+    cpu_register AF;
+    cpu_register BC;
+    cpu_register DE;
+    cpu_register HL;
+    cpu_register SP;
     word PC;
     
 } cpu;

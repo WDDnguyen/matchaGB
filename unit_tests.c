@@ -42,25 +42,25 @@ MU_TEST(test_initialize_cartridge_tetris){
 MU_TEST(test_initialize_emulate_state){
 
     mu_check(cpu_p->PC == 0x100);
-    mu_check(cpu_p->register_AF.value == 0x01B0);
-    mu_check(cpu_p->register_AF.high == 0x01);
-    mu_check(cpu_p->register_AF.low == 0xB0);
+    mu_check(cpu_p->AF.value == 0x01B0);
+    mu_check(cpu_p->AF.high == 0x01);
+    mu_check(cpu_p->AF.low == 0xB0);
 
-    mu_check(cpu_p->register_BC.value == 0x0013);
-    mu_check(cpu_p->register_BC.high == 0x00);
-    mu_check(cpu_p->register_BC.low == 0x13);
+    mu_check(cpu_p->BC.value == 0x0013);
+    mu_check(cpu_p->BC.high == 0x00);
+    mu_check(cpu_p->BC.low == 0x13);
     
-    mu_check(cpu_p->register_DE.value == 0x00D8);
-    mu_check(cpu_p->register_DE.high == 0x00);
-    mu_check(cpu_p->register_DE.low == 0xD8);
+    mu_check(cpu_p->DE.value == 0x00D8);
+    mu_check(cpu_p->DE.high == 0x00);
+    mu_check(cpu_p->DE.low == 0xD8);
     
-    mu_check(cpu_p->register_HL.value == 0x014D);
-    mu_check(cpu_p->register_HL.high == 0x01);
-    mu_check(cpu_p->register_HL.low == 0x4D);
+    mu_check(cpu_p->HL.value == 0x014D);
+    mu_check(cpu_p->HL.high == 0x01);
+    mu_check(cpu_p->HL.low == 0x4D);
 
-    mu_check(cpu_p->register_SP.value == 0xFFFE);
-    mu_check(cpu_p->register_SP.high == 0xFF);
-    mu_check(cpu_p->register_SP.low == 0xFE);
+    mu_check(cpu_p->SP.value == 0xFFFE);
+    mu_check(cpu_p->SP.high == 0xFF);
+    mu_check(cpu_p->SP.low == 0xFE);
 
     mu_check(memory_p->memory[0xFF05] == 0x00); 
     mu_check(memory_p->memory[0xFF06] == 0x00); 
@@ -122,31 +122,31 @@ MU_TEST(test_write_normal){
 
 MU_TEST(test_load_8_bit_immediate){
     
-    mu_check(cpu_p->register_BC.high == 0x00);
+    mu_check(cpu_p->BC.high == 0x00);
     cpu_p->PC = 0x9000;
     write_memory(cpu_p->memory_p, 0x9000, 0x06);
     write_memory(cpu_p->memory_p, 0x9001, 0x05);
     
     execute_next_opcode(cpu_p);
 
-    mu_check(cpu_p->register_BC.high == 0x05);
+    mu_check(cpu_p->BC.high == 0x05);
 
 }
 
 MU_TEST(test_load_8_bit){
 
-    mu_check(cpu_p->register_BC.value == 0x0013);    
-    mu_check(cpu_p->register_BC.high == 0x00);
+    mu_check(cpu_p->BC.value == 0x0013);    
+    mu_check(cpu_p->BC.high == 0x00);
 
-    mu_check(cpu_p->register_DE.value == 0x00D8);
-    mu_check(cpu_p->register_DE.low == 0xD8);
+    mu_check(cpu_p->DE.value == 0x00D8);
+    mu_check(cpu_p->DE.low == 0xD8);
     cpu_p->PC = 0x9000;
     write_memory(cpu_p->memory_p, 0x9000, 0x43);
     
     execute_next_opcode(cpu_p);
 
-    mu_check(cpu_p->register_BC.high == 0xD8);
-    //mu_check(cpu_p->register_BC.value == 0x00D8);
+    mu_check(cpu_p->BC.high == 0xD8);
+    //mu_check(cpu_p->BC.value == 0x00D8);
 
 }
 
