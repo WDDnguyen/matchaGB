@@ -120,6 +120,36 @@ MU_TEST(test_write_normal){
     mu_check(memory_p->memory[0x9000] == 0xFF);
 }
 
+MU_TEST(test_load_8_bit_immediate){
+    
+    mu_check(cpu_p->register_BC.high == 0x00);
+    cpu_p->PC = 0x9000;
+    write_memory(cpu_p->memory_p, 0x9000, 0x06);
+    write_memory(cpu_p->memory_p, 0x9001, 0x05);
+    
+    execute_next_opcode(cpu_p);
+
+    mu_check(cpu_p->register_BC.high == 0x05);
+
+}
+
+MU_TEST(test_load_8_bit){
+
+    mu_check(cpu_p->register_BC.value == 0x0013);    
+    mu_check(cpu_p->register_BC.high == 0x00);
+
+    mu_check(cpu_p->register_DE.value == 0x00D8);
+    mu_check(cpu_p->register_DE.low == 0xD8);
+    cpu_p->PC = 0x9000;
+    write_memory(cpu_p->memory_p, 0x9000, 0x43);
+    
+    execute_next_opcode(cpu_p);
+
+    mu_check(cpu_p->register_BC.high == 0xD8);
+    //mu_check(cpu_p->register_BC.value == 0x00D8);
+
+}
+
 // MU_TEST(test_write_memory_no_bank_switch){}
 //MU_TEST(test_write_memory_external_ram){}
 
@@ -132,7 +162,9 @@ MU_TEST_SUITE(test_suite){
     MU_RUN_TEST(test_read_memory_rom_no_switch);
     MU_RUN_TEST(test_read_memory_external_ram_no_switch);
     MU_RUN_TEST(test_write_memory_internal_ram);
-    MU_RUN_TEST(test_write_normal);    
+    MU_RUN_TEST(test_write_normal);  
+    MU_RUN_TEST(test_load_8_bit_immediate);
+    MU_RUN_TEST(test_load_8_bit);
 }
 
 int main (int argc, char *argv[]){
