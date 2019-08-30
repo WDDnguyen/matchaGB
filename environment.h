@@ -8,7 +8,10 @@
 
 #define TRUE 1
 #define FALSE 0
+
 #define TEST_BIT(value, position) ((value) & (1 << (position)))
+#define SET_BIT(value, position) ((value) | (1 << (position)))
+#define CLEAR_BIT(value, position) ((value) & (~(1 << position)))
 
 typedef unsigned char byte;
 typedef char signed_byte;

@@ -42,23 +42,18 @@ MU_TEST(test_initialize_cartridge_tetris){
 MU_TEST(test_initialize_emulate_state){
 
     mu_check(cpu_p->PC == 0x100);
-    mu_check(cpu_p->AF.value == 0x01B0);
     mu_check(cpu_p->AF.high == 0x01);
     mu_check(cpu_p->AF.low == 0xB0);
 
-    mu_check(cpu_p->BC.value == 0x0013);
     mu_check(cpu_p->BC.high == 0x00);
     mu_check(cpu_p->BC.low == 0x13);
     
-    mu_check(cpu_p->DE.value == 0x00D8);
     mu_check(cpu_p->DE.high == 0x00);
     mu_check(cpu_p->DE.low == 0xD8);
     
-    mu_check(cpu_p->HL.value == 0x014D);
     mu_check(cpu_p->HL.high == 0x01);
     mu_check(cpu_p->HL.low == 0x4D);
 
-    mu_check(cpu_p->SP.value == 0xFFFE);
     mu_check(cpu_p->SP.high == 0xFF);
     mu_check(cpu_p->SP.low == 0xFE);
 
@@ -135,13 +130,10 @@ MU_TEST(test_load_8_bit_immediate){
 
 MU_TEST(test_load_8_bit_HL){
 
-    mu_check(cpu_p->BC.value == 0x0013);    
-    mu_check(cpu_p->BC.high == 0x00);
-
-    
+    mu_check(cpu_p->BC.high == 0x00);    
     cpu_p->PC = 0x9000;
     write_memory(cpu_p->memory_p, 0x9000, 0x46);
-    write_memory(cpu_p->memory_p, cpu_p->HL.value, 0x0A);
+    write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), 0x0A);
     
     // LD B, HL
     execute_next_opcode(cpu_p);
@@ -150,11 +142,9 @@ MU_TEST(test_load_8_bit_HL){
 
 }
 
-MU_TEST(test_load_8_bit){
-    mu_check(cpu_p->BC.value == 0x0013);    
+MU_TEST(test_load_8_bit){   
     mu_check(cpu_p->BC.high == 0x00);
 
-    mu_check(cpu_p->DE.value == 0x00D8);
     mu_check(cpu_p->DE.low == 0xD8);
     cpu_p->PC = 0x9000;
     write_memory(cpu_p->memory_p, 0x9000, 0x43);
@@ -168,18 +158,16 @@ MU_TEST(test_load_8_bit){
 
 MU_TEST(test_load_8_bit_write_to_HL){
     
-    mu_check(cpu_p->BC.value == 0x0013);    
     mu_check(cpu_p->BC.low == 0x13);
-
-    cpu_p->HL.value = 0x900A;
-    printf("\n HL VALUE : %04x \n", cpu_p->HL.value);
+    cpu_p->HL.low = 0x0A;
+    cpu_p->HL.high = 0x90;
     cpu_p->PC = 0x9000;
     write_memory(cpu_p->memory_p, 0x9000, 0x71);
 
     // LD (HL), C
     execute_next_opcode(cpu_p);
 
-    mu_check(cpu_p->memory_p->memory[cpu_p->HL.value] == 0x13);
+    mu_check(cpu_p->memory_p->memory[get_registers_word(&cpu_p->HL)] == 0x13);
 
 }
 

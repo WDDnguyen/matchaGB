@@ -5,7 +5,6 @@
 #include "memory.h"
 
 typedef union cpu_register {
-    word value;
     struct {
         byte low;
         byte high;
@@ -26,5 +25,6 @@ typedef struct cpu {
 cpu *initialize_cpu(memory_map *memory_p);
 int execute_next_opcode(cpu *cpu_p);
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p);
+word get_registers_word(cpu_register *register_p);
 
 #endif
