@@ -5,7 +5,6 @@
 #define HALF_CARRY_FLAG 5
 #define CARRY_FLAG 4
 
-static int execute_opcode(cpu *cpu_p, byte opcode);
 static void load_immediate_8_bit(cpu *cpu_p, byte *register_p);
 static void load_8_bit(byte *p, byte data);
 static byte get_immediate_8_bit(cpu *cpu_p);
@@ -15,9 +14,6 @@ static void set_registers_word(cpu_register *register_p, word data);
 static void load_hl(cpu *cpu_p, cpu_register *AF_p, cpu_register *HL_p);
 static void increment(cpu_register *register_p);
 static void decrement(cpu_register *register_p);
-
-
-//static void load_16_bit_immediate(word *register_p, word data);
 
 static word address;
 static byte data;
@@ -39,11 +35,12 @@ int execute_next_opcode(cpu *cpu_p){
 
 }
 
-static int execute_opcode(cpu *cpu_p, byte opcode){
+int execute_opcode(cpu *cpu_p, byte opcode){
     
     switch(opcode){
         
         // LD r, n when n == immediate 8 bit
+        case 0x3E: load_immediate_8_bit(cpu_p, &cpu_p->AF.hi); return 8;
         case 0x06: load_immediate_8_bit(cpu_p, &cpu_p->BC.hi); return 8;
         case 0x0E: load_immediate_8_bit(cpu_p, &cpu_p->BC.lo); return 8;
         case 0x16: load_immediate_8_bit(cpu_p, &cpu_p->DE.hi); return 8;
@@ -63,7 +60,6 @@ static int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x0A: load_8_bit(&cpu_p->AF.hi, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->BC))); return 8; 
         case 0x1A: load_8_bit(&cpu_p->AF.hi, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->DE))); return 8;
         case 0xFA: load_8_bit(&cpu_p->AF.hi, read_memory(cpu_p->memory_p, get_immediate_16_bit(cpu_p))); return 16;
-        case 0x3E: load_immediate_8_bit(cpu_p, &cpu_p->AF.hi); return 16;
         
         // LD r1, r2 when r1 == B
         case 0x47: load_8_bit(&cpu_p->BC.hi, cpu_p->AF.hi); return 4;
@@ -129,6 +125,7 @@ static int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x6E: load_8_bit(&cpu_p->HL.lo, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL))); return 8; 
         
         // LD r1, r2 when r1 == (HL) 
+        case 0x77: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), cpu_p->AF.hi); return 8;
         case 0x70: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), cpu_p->BC.hi); return 8;
         case 0x71: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), cpu_p->BC.lo); return 8;
         case 0x72: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), cpu_p->DE.hi); return 8;
@@ -140,7 +137,6 @@ static int execute_opcode(cpu *cpu_p, byte opcode){
         // LD n, A when n == {(BC), (DE), (HL), (nn)}
         case 0x02: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->BC), cpu_p->AF.hi); return 8;
         case 0x12: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->DE), cpu_p->AF.hi); return 8;
-        case 0x77: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), cpu_p->AF.hi); return 8;
         case 0xEA: write_memory(cpu_p->memory_p, get_immediate_16_bit(cpu_p), cpu_p->AF.hi); return 16;
         
         // LD A, (C)
@@ -159,11 +155,11 @@ static int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x22: write_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), cpu_p->AF.hi); increment(&cpu_p->HL); return 8;
 
         // LDH (n), A
-        case 0xE0: write_memory(cpu_p->memory_p, 0xFF00 + cpu_p->PC, cpu_p->AF.hi); cpu_p->PC++; return 12;
+        case 0xE0: write_memory(cpu_p->memory_p, 0xFF00 + get_immediate_8_bit(cpu_p), cpu_p->AF.hi); return 12;
         // LDH A, (n)
-        case 0xF0: load_8_bit(&cpu_p->AF.hi, read_memory(cpu_p->memory_p, 0xFF00 + cpu_p->PC)); cpu_p->PC++; return 12;
+        case 0xF0: load_8_bit(&cpu_p->AF.hi, read_memory(cpu_p->memory_p, 0xFF00 + get_immediate_8_bit(cpu_p))); return 12;
 
-        // LD n,nn  
+        // LD n,nn when nn == immediate 16 bit
         case 0x01: load_immediate_16_bit(cpu_p, &cpu_p->BC); return 12;
         case 0x11: load_immediate_16_bit(cpu_p, &cpu_p->DE); return 12;
         case 0x21: load_immediate_16_bit(cpu_p, &cpu_p->HL); return 12;
@@ -171,7 +167,6 @@ static int execute_opcode(cpu *cpu_p, byte opcode){
 
         // LD SP, HL
         case 0xF9: set_registers_word(&cpu_p->SP, get_registers_word(&cpu_p->HL)); return 8;
-        //LDHL  need to implement flags
         case 0xF8: load_hl(cpu_p, &cpu_p->AF, &cpu_p->HL); return 12;
         // LD (nn), SP
         case 0x08: 
@@ -219,12 +214,12 @@ word get_registers_word(cpu_register *register_p){
 
 static void set_registers_word(cpu_register *register_p, word data){
     register_p->hi = (data & 0xFF00) >> 8;
-    register_p->lo = (data * 0x00FF);
+    register_p->lo = (data & 0x00FF);
 }
 
 static void load_hl(cpu *cpu_p, cpu_register *AF_p, cpu_register *HL_p){
     
-    unsigned int overflo;
+    unsigned int overflow;
     byte n = get_immediate_8_bit(cpu_p);
 
     AF_p->lo = CLEAR_BIT(AF_p->lo, ZERO_FLAG);
@@ -233,18 +228,24 @@ static void load_hl(cpu *cpu_p, cpu_register *AF_p, cpu_register *HL_p){
     word value = (get_registers_word(&cpu_p->SP) + n) & 0xFFFF;
     set_registers_word(HL_p, value);
 
-    overflo = get_registers_word(&cpu_p->SP) + n;
-    if (overflo > 0xFFFF){
+    overflow = get_registers_word(&cpu_p->SP) + n;
+    if (overflow > 0xFFFF){
+        printf("\nCARRY OVERFLOW\n");
         AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
     } else {
+        printf("\n NO CARRY OVERFLOW\n");
         AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
     }
 
-    overflo = (get_registers_word(&cpu_p->SP) & 0xF) + (n & 0xF);
-    if (overflo > 0xF){
+    overflow = (get_registers_word(&cpu_p->SP) & 0xF) + (n & 0xF);
+    
+    if (overflow > 0xF){
+        printf("\n AF BEFORE %x\n", AF_p->lo);
         AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+        printf("\n AF AFTER %x\n", AF_p->lo);
     } else {
-        AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
+        printf("\n NO HALF OVERFLOW\n");
+        AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
     }
 } 
 

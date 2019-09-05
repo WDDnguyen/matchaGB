@@ -23,6 +23,7 @@ typedef struct cpu {
 } cpu;
 
 cpu *initialize_cpu(memory_map *memory_p);
+int execute_opcode(cpu *cpu_p, byte opcode);
 int execute_next_opcode(cpu *cpu_p);
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p);
 word get_registers_word(cpu_register *register_p);
