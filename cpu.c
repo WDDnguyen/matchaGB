@@ -14,7 +14,13 @@ static void set_registers_word(cpu_register *register_p, word data);
 static void load_hl(cpu *cpu_p, cpu_register *AF_p, cpu_register *HL_p);
 static void increment(cpu_register *register_p);
 static void decrement(cpu_register *register_p);
-
+static void add_8_bit(cpu_register *register_p, byte data);
+static void add_carry_8_bit(cpu_register *AF_p, byte data);
+static void sub_8_bit(cpu_register *AF_p, byte data);
+static void sub_carry_8_bit(cpu_register *AF_p, byte data);
+static void and_8_bit(cpu_register *AF_p, byte data);
+static void or_8_bit(cpu_register *AF_p, byte data);
+static void xor_8_bit(cpu_register *AF_p, byte data);
 static word address;
 static byte data;
 
@@ -175,6 +181,87 @@ int execute_opcode(cpu *cpu_p, byte opcode){
             address++;
             write_memory(cpu_p->memory_p, address, cpu_p->SP.hi);
             return 20; 
+
+        // 8-BIT ALU
+
+         // ADC A,n 
+        case 0x87: add_8_bit(&cpu_p->AF, cpu_p->AF.lo); return 4;
+        case 0x80: add_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0x81: add_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0x82: add_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0x83: add_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0x84: add_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0x85: add_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0x86: add_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->AF))); return 8;
+        case 0xC6: add_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+
+        // ADC A, n
+        case 0x8F: add_carry_8_bit(&cpu_p->AF, cpu_p->AF.hi); return 4;
+        case 0x88: add_carry_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0x89: add_carry_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0x8A: add_carry_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0x8B: add_carry_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0x8C: add_carry_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0x8D: add_carry_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0x8E: add_carry_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->AF))); return 8;
+        case 0xCE: add_carry_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+        
+        // SUB n
+        case 0x97: sub_8_bit(&cpu_p->AF, cpu_p->AF.hi); return 4;
+        case 0x90: sub_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0x91: sub_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0x92: sub_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0x93: sub_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0x94: sub_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0x95: sub_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0x96: sub_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL))); return 8;
+        case 0xD6: sub_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+       
+        // SBC A, n 
+        case 0x9F: sub_carry_8_bit(&cpu_p->AF, cpu_p->AF.hi); return 4;
+        case 0x98: sub_carry_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0x99: sub_carry_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0x9A: sub_carry_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0x9B: sub_carry_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0x9C: sub_carry_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0x9D: sub_carry_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0x9E: sub_carry_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL)));
+        // need to very 0xDE is SBC, not in the gameboy manual
+        case 0xDE: sub_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+
+        // AND n 
+        case 0xA7: and_8_bit(&cpu_p->AF, cpu_p->AF.hi); return 4;
+        case 0xA0: and_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0xA1: and_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0xA2: and_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0xA3: and_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0xA4: and_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0xA5: and_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0xA6: and_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL))); return 8; 
+        case 0xE6: and_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+
+        // OR n
+        case 0xB7: or_8_bit(&cpu_p->AF, cpu_p->AF.hi); return 4;
+        case 0xB0: or_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0xB1: or_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0xB2: or_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0xB3: or_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0xB4: or_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0xB5: or_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0xB6: or_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL))); return 8; 
+        case 0xF6: or_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+
+        // XOR n
+        case 0xAF: xor_8_bit(&cpu_p->AF, cpu_p->AF.hi); return 4;
+        case 0xA8: xor_8_bit(&cpu_p->AF, cpu_p->BC.hi); return 4;
+        case 0xA9: xor_8_bit(&cpu_p->AF, cpu_p->BC.lo); return 4;
+        case 0xAA: xor_8_bit(&cpu_p->AF, cpu_p->DE.hi); return 4;
+        case 0xAB: xor_8_bit(&cpu_p->AF, cpu_p->DE.lo); return 4;
+        case 0xAC: xor_8_bit(&cpu_p->AF, cpu_p->HL.hi); return 4;
+        case 0xAD: xor_8_bit(&cpu_p->AF, cpu_p->HL.lo); return 4;
+        case 0xAE: xor_8_bit(&cpu_p->AF, read_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL))); return 8; 
+        case 0xEE: xor_8_bit(&cpu_p->AF, get_immediate_8_bit(cpu_p)); return 8;
+
     }
 
     return 0;
@@ -230,24 +317,193 @@ static void load_hl(cpu *cpu_p, cpu_register *AF_p, cpu_register *HL_p){
 
     overflow = get_registers_word(&cpu_p->SP) + n;
     if (overflow > 0xFFFF){
-        printf("\nCARRY OVERFLOW\n");
         AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
     } else {
-        printf("\n NO CARRY OVERFLOW\n");
         AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
     }
 
     overflow = (get_registers_word(&cpu_p->SP) & 0xF) + (n & 0xF);
     
     if (overflow > 0xF){
-        printf("\n AF BEFORE %x\n", AF_p->lo);
         AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
-        printf("\n AF AFTER %x\n", AF_p->lo);
     } else {
-        printf("\n NO HALF OVERFLOW\n");
         AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
     }
 } 
+
+
+static void add_carry_8_bit(cpu_register *AF_p, byte data){
+    byte result = AF_p->hi;
+    byte carry = 0;
+    
+    // add carry
+    if(TEST_BIT(AF_p->lo, CARRY_FLAG)){
+        carry = 1;
+    }
+
+    result += (data + carry);
+
+
+    // FLAG configurations
+    AF_p->lo = 0;
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    word overflow = AF_p->hi & 0xF;
+    overflow += ((data + carry) & 0xF);
+    
+    if (overflow > 0xF){
+        AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    }
+
+    overflow = AF_p->hi + data + carry;
+    if (overflow > 0xFF){
+        AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    AF_p->hi = result;
+
+}
+
+static void add_8_bit(cpu_register *AF_p, byte data){
+    
+    byte result = AF_p->hi;
+
+    result += data;
+
+    // FLAG configurations
+    AF_p->lo = 0;
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    word overflow = AF_p->hi & 0xF;
+    overflow += ((data) & 0xF);
+    
+    if (overflow > 0xF){
+        AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    }
+
+    overflow = AF_p->hi + data;
+    if (overflow > 0xFF){
+        AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    AF_p->hi = result;
+}
+
+
+static void sub_8_bit(cpu_register *AF_p, byte data){
+    
+    byte result = AF_p->hi;
+    result -= data;
+
+    AF_p->lo = 0;
+
+    AF_p->lo = SET_BIT(AF_p->lo, SUBTRACT_FLAG);
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    if (AF_p->lo < data){
+        AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    word borrow = AF_p->hi & 0xF;
+    borrow -= (result & 0xF);
+
+    if (borrow < 0){
+        AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    }
+
+    AF_p->hi = result;
+}
+
+static void sub_carry_8_bit(cpu_register *AF_p, byte data){
+    
+    byte result = AF_p->hi;
+    byte carry = 0;
+    
+    // add carry
+    if(TEST_BIT(AF_p->lo, CARRY_FLAG)){
+        carry = 1;
+    }
+
+    result += carry;
+    result -= data;
+
+    AF_p->lo = 0;
+    AF_p->lo = SET_BIT(AF_p->lo, SUBTRACT_FLAG);
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    if ((AF_p->lo + carry) < data){
+        AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    word borrow = AF_p->hi & 0xF;
+    borrow += carry;
+    borrow -= (result & 0xF);
+
+    if (borrow < 0){
+        AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    }
+
+    AF_p->hi = result;
+}
+
+static void and_8_bit(cpu_register *AF_p, byte data){
+    
+    byte result = AF_p->hi & data;
+
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
+
+    AF_p->hi = result;
+}
+static void or_8_bit(cpu_register *AF_p, byte data){
+    
+    byte result = AF_p->hi | data;
+
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
+
+    AF_p->hi = result;
+}
+
+static void xor_8_bit(cpu_register *AF_p, byte data){
+
+    byte result = AF_p->hi ^ data;
+
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
+    
+    AF_p->hi = result;
+}
 
 static void increment(cpu_register *register_p){
     word value = get_registers_word(register_p);
