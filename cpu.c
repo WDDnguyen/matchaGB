@@ -33,6 +33,9 @@ static void dec_16_bit(cpu_register *register_p);
 static void swap_nibble(byte *register_p, byte *F_p);
 static void swap_nibble_memory(memory_map *memory_p, byte *F_p, word address);
 static int execute_extended_opcode(cpu *cpu_p);
+static void cpl(cpu_register *AF_p);
+static void ccf(byte *F_p);
+static void scl(byte *F_p);
 static word address;
 static byte *register_p;
 static byte data;
@@ -329,11 +332,22 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x2B: dec_16_bit(&cpu_p->HL); return 8;
         case 0x3B: dec_16_bit(&cpu_p->SP); return 8;
 
-        // Miscellaneous
-
         // CB
         case 0xCB: return execute_extended_opcode(cpu_p);
 
+        // Miscellaneous
+        
+        // DAA
+        case 0x27: daa(&cpu_p->AF); return 4; 
+
+        // CPL
+        case 0x2F: cpl(&cpu_p->AF); return 4;
+
+        // CCF 
+        case 0x3F: ccf(&cpu_p->AF.lo); return 4;
+
+        // SCF
+        case 0x37: scf(&cpu_p->AF.lo); return 4;
     }
 
     return 0;
@@ -821,6 +835,69 @@ static void swap_nibble_memory(memory_map *memory_p, byte *F_p, word address){
 
     write_memory(memory_p, address, swapped_nibble);
 }
+
+
+// took BCD implementation from external source
+// have to verify implementation and test it.
+static void dda(cpu_register *AF_p) {
+
+    if (TEST_BIT(AF_p->lo, SUBTRACT_FLAG)){
+		if ((AF_p->hi &0x0F ) >0x09 || AF_p->lo &0x20 )
+		{
+			AF_p->hi -=0x06; //Half borrow: (0-1) = (0xF-0x6) = 9
+			if ((AF_p->hi&0xF0)==0xF0) AF_p->lo|=0x10; else AF_p->lo&=~0x10;
+		}
+
+		if ((AF_p->hi&0xF0)>0x90 || AF_p->lo&0x10) AF_p->hi-=0x60;
+	}
+	else
+	{
+		if ((AF_p->hi&0x0F)>9 || AF_p->lo&0x20)
+		{
+			AF_p->hi+=0x06; //Half carry: (9+1) = (0xA+0x6) = 10
+			if((AF_p->hi&0xF0)==0) AF_p->lo|=0x10; else AF_p->lo&=~0x10;
+		}
+
+		if((AF_p->hi&0xF0)>0x90 || AF_p->lo&0x10) AF_p->hi+=0x60;
+	}
+
+	if(AF_p->hi==0) AF_p->lo|=0x80; else AF_p->lo&=~0x80;
+}
+
+static void cpl(cpu_register *AF_p){
+    
+    byte complement = ~(AF_p->hi);
+
+    // flag configuration
+    AF_p->lo = SET_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    
+    AF_p->hi = complement;
+}
+
+static void ccf(byte *F_p){
+ 
+    // flag configuration
+
+    *F_p = CLEAR_BIT(*F_p, SUBTRACT_FLAG);
+    *F_p = CLEAR_BIT(*F_p, HALF_CARRY_FLAG);
+
+    if (TEST_BIT(*F_p, CARRY_FLAG)){
+        *F_p = CLEAR_BIT(*F_p, CARRY_FLAG);
+    } else {
+        *F_p = SET_BIT(*F_p, CARRY_FLAG);
+    }
+}
+
+static void scf(byte *F_p){
+
+    *F_p = CLEAR_BIT(*F_p, SUBTRACT_FLAG);
+    *F_p = CLEAR_BIT(*F_p, HALF_CARRY_FLAG);
+    *F_p = SET_BIT(*F_p, CARRY_FLAG);
+}
+
+
+
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
     
