@@ -24,8 +24,12 @@ static void inc_8_bit(byte *register_p, cpu_register *AF_p);
 static void inc_memory_8_bit(cpu *register_p, cpu_register *AF_p);
 static void dec_memory_8_bit(cpu *register_p, cpu_register *AF_p);
 static void dec_8_bit(byte *register_p, cpu_register *AF_p);
+static void add_16_bit_hl(cpu_register *HL_p, cpu_register *AF_p, word data);
+static void add_16_bit_sp(cpu *cpu_p, cpu_register *SP_p, cpu_register *AF_p);
 static void increment(cpu_register *register_p);
 static void decrement(cpu_register *register_p);
+static void inc_16_bit(cpu_register *register_p);
+static void dec_16_bit(cpu_register *register_p);
 static word address;
 static byte *register_p;
 static byte data;
@@ -299,6 +303,28 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x2D: dec_8_bit(&cpu_p->AF.lo, &cpu_p->AF); return 4;
         case 0x35: dec_memory_8_bit(cpu_p, &cpu_p->AF); return 12;
 
+        // 16-bit ALU
+
+        // ADD HL, n
+        case 0x09: add_16_bit_hl(&cpu_p->HL, &cpu_p->AF, get_registers_word(&cpu_p->BC)); return 8;
+        case 0x19: add_16_bit_hl(&cpu_p->HL, &cpu_p->AF, get_registers_word(&cpu_p->DE)); return 8;
+        case 0x29: add_16_bit_hl(&cpu_p->HL, &cpu_p->AF, get_registers_word(&cpu_p->HL)); return 8;
+        case 0x39: add_16_bit_hl(&cpu_p->HL, &cpu_p->AF, get_registers_word(&cpu_p->SP)); return 8;
+
+        // ADD SP, n
+        case 0xE8: add_16_bit_sp(cpu_p, &cpu_p->SP, &cpu_p->AF); return 16;
+
+        // INC, nn
+        case 0x03: inc_16_bit(&cpu_p->BC); return 8;
+        case 0x13: inc_16_bit(&cpu_p->DE); return 8;
+        case 0x23: inc_16_bit(&cpu_p->HL); return 8;
+        case 0x33: inc_16_bit(&cpu_p->SP); return 8;
+
+        // DEC, nn
+        case 0x0B: dec_16_bit(&cpu_p->BC); return 8;
+        case 0x1B: dec_16_bit(&cpu_p->DE); return 8;
+        case 0x2B: dec_16_bit(&cpu_p->HL); return 8;
+        case 0x3B: dec_16_bit(&cpu_p->SP); return 8;
     }
 
     return 0;
@@ -660,8 +686,6 @@ static void dec_8_bit(byte *register_p, cpu_register *AF_p){
     *register_p = result;
 }
 
-
-
 static void increment(cpu_register *register_p){
     word value = get_registers_word(register_p);
     value++;
@@ -674,6 +698,69 @@ static void decrement(cpu_register *register_p){
     value--;
     register_p->hi = (value & 0xFF00) >> 8;
     register_p->lo = (value & 0x00FF);
+}
+
+static void inc_16_bit(cpu_register *register_p){
+    increment(register_p);
+}
+
+static void dec_16_bit(cpu_register *register_p){
+    decrement(register_p);
+}
+
+static void add_16_bit_hl(cpu_register *HL_p, cpu_register *AF_p, word data){
+    
+    word result = get_registers_word(HL_p) + data;
+    
+    // flags configuration
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    
+    int carry_test = get_registers_word(HL_p) + data;
+    if (carry_test > 0xFFFF){
+        AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
+    }
+    
+    // need to test if carry from bit 11
+    carry_test = get_registers_word(HL_p) & 0x0FFF;
+    carry_test += data & 0x0FFF;
+
+    if (carry_test > 0x0FFF){
+        AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    }
+
+    set_registers_word(HL_p, result);
+
+}
+static void add_16_bit_sp(cpu *cpu_p, cpu_register *SP_p, cpu_register *AF_p){
+    
+    signed_byte data = get_immediate_8_bit(cpu_p);
+    word result = get_registers_word(SP_p) + data;
+
+    // flag configurations
+    AF_p->lo = CLEAR_BIT(AF_p->lo, ZERO_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+
+    // not sure how H and C are set, need to recheck
+    int carry_test = get_registers_word(SP_p) + data;
+    if (carry_test > 0xFFFF){
+        AF_p->lo = SET_BIT(AF_p->lo, CARRY_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    carry_test = get_registers_word(SP_p) & 0xF;
+    carry_test += data & 0xF;
+    
+    if (carry_test > 0xF){
+        AF_p->lo = SET_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+    }
+
 }
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
