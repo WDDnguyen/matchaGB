@@ -19,7 +19,9 @@ typedef struct cpu {
     cpu_register HL;
     cpu_register SP;
     word PC;
-    
+    byte halted;
+    byte pending_interrupt_enable;
+
 } cpu;
 
 cpu *initialize_cpu(memory_map *memory_p);

@@ -35,7 +35,13 @@ static void swap_nibble_memory(memory_map *memory_p, byte *F_p, word address);
 static int execute_extended_opcode(cpu *cpu_p);
 static void cpl(cpu_register *AF_p);
 static void ccf(byte *F_p);
-static void scl(byte *F_p);
+static void scf(byte *F_p);
+static void daa(cpu_register *AF_p);
+static void nop();
+static void halt(cpu *cpu_p);
+static void stop(cpu *cpu_p);
+static void di(cpu *cpu_p);
+static void ei(cpu *cpu_p);
 static word address;
 static byte *register_p;
 static byte data;
@@ -348,6 +354,21 @@ int execute_opcode(cpu *cpu_p, byte opcode){
 
         // SCF
         case 0x37: scf(&cpu_p->AF.lo); return 4;
+
+        // NOP
+        case 0x00: nop(); return 4;
+
+        // HALT
+        case 0x76: halt(cpu_p); return 4;
+
+        // STOP 10 00
+        case 0x10: stop(cpu_p); return 4;
+
+        // DI
+        case 0xF3: di(cpu_p); return 4;
+
+        // EI
+        case 0xFB: ei(cpu_p); return 4;
     }
 
     return 0;
@@ -839,7 +860,7 @@ static void swap_nibble_memory(memory_map *memory_p, byte *F_p, word address){
 
 // took BCD implementation from external source
 // have to verify implementation and test it.
-static void dda(cpu_register *AF_p) {
+static void daa(cpu_register *AF_p) {
 
     if (TEST_BIT(AF_p->lo, SUBTRACT_FLAG)){
 		if ((AF_p->hi &0x0F ) >0x09 || AF_p->lo &0x20 )
@@ -894,6 +915,29 @@ static void scf(byte *F_p){
     *F_p = CLEAR_BIT(*F_p, SUBTRACT_FLAG);
     *F_p = CLEAR_BIT(*F_p, HALF_CARRY_FLAG);
     *F_p = SET_BIT(*F_p, CARRY_FLAG);
+}
+
+static void nop(){
+    return;
+}
+
+static void halt(cpu *cpu_p){
+    cpu_p->halted = TRUE;
+}
+
+// halt cpu and LCD when button is pressed, need to check how to halt lcd display
+static void stop(cpu *cpu_p){
+    cpu_p->halted = TRUE;
+    // LCD ?
+}
+
+static void di(cpu *cpu_p){
+    cpu_p->pending_interrupt_enable = FALSE;
+}
+
+static void ei(cpu *cpu_p){
+    // does pending interrupt disable be disabled ?
+    cpu_p->pending_interrupt_enable = TRUE;
 }
 
 
