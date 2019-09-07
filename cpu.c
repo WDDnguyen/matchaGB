@@ -42,9 +42,18 @@ static void halt(cpu *cpu_p);
 static void stop(cpu *cpu_p);
 static void di(cpu *cpu_p);
 static void ei(cpu *cpu_p);
+static void rrc(byte *R_p, cpu_register *AF_p);
+static void rrc_memory(memory_map *memory_p, word address, cpu_register *AF_p);
+static void rr(byte *R_p, byte *F_p);
+static void rr_memory(memory_map *memory_p, word address, byte *F_p);
+static void rlc(byte *R_p, cpu_register *AF_p);
+static void rlc_memory(memory_map *memory_p, word address, cpu_register *AF_p);
+static void rl(byte *R_p, byte *F_p);
+static void rl_memory(memory_map *memory_p, word address, byte *F_p);
 static word address;
 static byte *register_p;
 static byte data;
+
 
 cpu *initialize_cpu(memory_map *memory_p){
     
@@ -369,6 +378,14 @@ int execute_opcode(cpu *cpu_p, byte opcode){
 
         // EI
         case 0xFB: ei(cpu_p); return 4;
+
+        // left rotation
+        case 0x07: rlc(&cpu_p->AF.hi, &cpu_p->AF); return 4;
+        case 0x17: rl(&cpu_p->AF.hi, &cpu_p->AF.lo); return 4;
+
+        // right rotation
+        case 0x0F: rrc(&cpu_p->AF.hi, &cpu_p->AF); return 4;
+        case 0x1F: rr(&cpu_p->AF.hi, &cpu_p->AF.lo); return 4;
     }
 
     return 0;
@@ -389,6 +406,48 @@ static int execute_extended_opcode(cpu *cpu_p){
         case 0x34: swap_nibble(&cpu_p->HL.hi, &cpu_p->AF.lo); return 8;
         case 0x35: swap_nibble(&cpu_p->HL.lo, &cpu_p->AF.lo); return 8;
         case 0X36: swap_nibble_memory(cpu_p->memory_p, &cpu_p->AF.lo, get_registers_word(&cpu_p->HL)); return 16;
+
+        // RLC n
+        case 0x07: rlc(&cpu_p->AF.hi, &cpu_p->AF); return 8;
+        case 0x00: rlc(&cpu_p->BC.hi, &cpu_p->AF); return 8;
+        case 0x01: rlc(&cpu_p->BC.lo, &cpu_p->AF); return 8;
+        case 0x02: rlc(&cpu_p->DE.hi, &cpu_p->AF); return 8;
+        case 0x03: rlc(&cpu_p->DE.lo, &cpu_p->AF); return 8;
+        case 0x04: rlc(&cpu_p->HL.hi, &cpu_p->AF); return 8;
+        case 0x05: rlc(&cpu_p->HL.lo, &cpu_p->AF); return 8;
+        case 0x06: rlc_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), &cpu_p->AF); return 16;
+
+        // RL n
+        case 0x17: rl(&cpu_p->AF.hi, &cpu_p->AF.lo); return 8;
+        case 0x10: rl(&cpu_p->BC.hi, &cpu_p->AF.lo); return 8;
+        case 0x11: rl(&cpu_p->BC.lo, &cpu_p->AF.lo); return 8;
+        case 0x12: rl(&cpu_p->DE.hi, &cpu_p->AF.lo); return 8;
+        case 0x13: rl(&cpu_p->DE.lo, &cpu_p->AF.lo); return 8;
+        case 0x14: rl(&cpu_p->HL.hi, &cpu_p->AF.lo); return 8;
+        case 0x15: rl(&cpu_p->HL.lo, &cpu_p->AF.lo); return 8;
+        case 0x16: rl_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), &cpu_p->AF.lo); return 16;
+
+        // RRC n
+        case 0x0F: rrc(&cpu_p->AF.hi, &cpu_p->AF); return 8;
+        case 0x08: rrc(&cpu_p->BC.hi, &cpu_p->AF); return 8;
+        case 0x09: rrc(&cpu_p->BC.lo, &cpu_p->AF); return 8;
+        case 0x0A: rrc(&cpu_p->DE.hi, &cpu_p->AF); return 8;
+        case 0x0B: rrc(&cpu_p->DE.lo, &cpu_p->AF); return 8;
+        case 0x0C: rrc(&cpu_p->HL.hi, &cpu_p->AF); return 8;
+        case 0x0D: rrc(&cpu_p->HL.lo, &cpu_p->AF); return 8;
+        case 0x0E: rrc_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), &cpu_p->AF); return 16;
+
+        // RR n
+        case 0x1F: rr(&cpu_p->AF.hi, &cpu_p->AF.lo); return 8;
+        case 0x18: rr(&cpu_p->BC.hi, &cpu_p->AF.lo); return 8;
+        case 0x19: rr(&cpu_p->BC.lo, &cpu_p->AF.lo); return 8;
+        case 0x1A: rr(&cpu_p->DE.hi, &cpu_p->AF.lo); return 8;
+        case 0x1B: rr(&cpu_p->DE.lo, &cpu_p->AF.lo); return 8;
+        case 0x1C: rr(&cpu_p->HL.hi, &cpu_p->AF.lo); return 8;
+        case 0x1D: rr(&cpu_p->HL.lo, &cpu_p->AF.lo); return 8;
+        case 0x1E: rr_memory(cpu_p->memory_p, get_registers_word(&cpu_p->HL), &cpu_p->AF.lo); return 16;
+
+
 
     }
     return 0;
@@ -940,8 +999,194 @@ static void ei(cpu *cpu_p){
     cpu_p->pending_interrupt_enable = TRUE;
 }
 
+static void rlc(byte *R_p, cpu_register *AF_p){
 
+    byte result = *R_p << 1;
+    // flag configuration
 
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+
+    byte msb_bit = *R_p & 0x80;
+    if (msb_bit){
+        AF_p->lo = TEST_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    *R_p = result;    
+}
+
+static void rlc_memory(memory_map *memory_p, word address, cpu_register *AF_p){
+    
+    byte data = read_memory(memory_p, address);
+    byte result = data << 1;
+
+    // flag configuration
+
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+
+    byte msb_bit = result & 0x80;
+    if (msb_bit){
+        AF_p->lo = TEST_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    write_memory(memory_p, address, result);
+
+}
+
+static void rl(byte *R_p, byte *F_p){
+
+    byte carry_set = TEST_BIT(*F_p, CARRY_FLAG);
+    byte msb_set = TEST_BIT(*R_p, 7);
+
+    *R_p <<= 1;
+
+    // flag configuration
+    if (msb_set){
+        *F_p = SET_BIT(*F_p, CARRY_FLAG);
+    }
+
+    if (carry_set){
+        *R_p = SET_BIT(*R_p, 0);
+    }
+    
+    if (*R_p == 0){
+        *F_p = SET_BIT(*F_p, ZERO_FLAG);
+    }
+}
+
+static void rl_memory(memory_map *memory_p, word address, byte *F_p){
+
+    byte data = read_memory(memory_p, address);
+    byte carry_set = TEST_BIT(*F_p, CARRY_FLAG);
+    byte msb_set = TEST_BIT(data, 7);
+
+    data <<= 1;
+
+    // flag configuration
+    if (msb_set){
+        *F_p = SET_BIT(*F_p, CARRY_FLAG);
+    }
+
+    if (carry_set){
+        data = SET_BIT(data, 0);
+    }
+    
+    if (data == 0){
+        *F_p = SET_BIT(*F_p, ZERO_FLAG);
+    }
+
+    write_memory(memory_p, address, data);
+}
+
+static void rrc(byte *R_p, cpu_register *AF_p){
+    
+    byte result = *R_p >> 1;
+    
+    // flag configuration
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+
+    byte lsb_bit = *R_p & 0x01;
+    if (lsb_bit){
+        AF_p->lo = TEST_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    *R_p = result;     
+}
+
+static void rrc_memory(memory_map *memory_p, word address, cpu_register *AF_p){
+    
+    byte data = read_memory(memory_p, address);
+    byte result = data >> 1;
+
+    // flag configuration
+
+    AF_p->lo = 0;
+    if (result == 0){
+        AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
+    } else {
+        AF_p->lo = CLEAR_BIT(AF_p->lo, ZERO_FLAG);
+    }
+
+    AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
+    AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
+
+    byte lsb_bit = result & 0x01;
+    if (lsb_bit){
+        AF_p->lo = TEST_BIT(AF_p->lo, CARRY_FLAG);
+    }
+
+    write_memory(memory_p, address, result);
+
+}
+
+static void rr(byte *R_p, byte *F_p){
+
+    byte carry_set = TEST_BIT(*F_p, CARRY_FLAG);
+    byte lsb_set = TEST_BIT(*R_p, 0);
+
+    *R_p >>= 1;
+
+    // flag configuration
+    
+    if (lsb_set){
+        *F_p = SET_BIT(*F_p, CARRY_FLAG);
+    }
+
+    if (carry_set){
+        *R_p = SET_BIT(*R_p, 7);
+    }
+    
+    if (*R_p == 0){
+        *F_p = SET_BIT(*F_p, ZERO_FLAG);
+    }
+}
+
+static void rr_memory(memory_map *memory_p, word address, byte *F_p){
+
+    byte data = read_memory(memory_p, address);
+    byte carry_set = TEST_BIT(*F_p, CARRY_FLAG);
+    byte lsb_set = TEST_BIT(data, 0);
+
+    data >>= 1;
+
+    // flag configuration
+    if (lsb_set){
+        *F_p = SET_BIT(*F_p, CARRY_FLAG);
+    }
+
+    if (carry_set){
+        data = SET_BIT(data, 7);
+    }
+    
+    if (data == 0){
+        *F_p = SET_BIT(*F_p, ZERO_FLAG);
+    }
+
+    write_memory(memory_p, address, data);
+}
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
     
