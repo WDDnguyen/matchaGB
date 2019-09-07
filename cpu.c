@@ -30,6 +30,9 @@ static void increment(cpu_register *register_p);
 static void decrement(cpu_register *register_p);
 static void inc_16_bit(cpu_register *register_p);
 static void dec_16_bit(cpu_register *register_p);
+static void swap_nibble(byte *register_p, byte *F_p);
+static void swap_nibble_memory(memory_map *memory_p, byte *F_p, word address);
+static int execute_extended_opcode(cpu *cpu_p);
 static word address;
 static byte *register_p;
 static byte data;
@@ -325,8 +328,34 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x1B: dec_16_bit(&cpu_p->DE); return 8;
         case 0x2B: dec_16_bit(&cpu_p->HL); return 8;
         case 0x3B: dec_16_bit(&cpu_p->SP); return 8;
+
+        // Miscellaneous
+
+        // CB
+        case 0xCB: return execute_extended_opcode(cpu_p);
+
     }
 
+    return 0;
+}
+
+static int execute_extended_opcode(cpu *cpu_p){
+    
+    byte extended_opcode = get_immediate_8_bit(cpu_p);
+    
+    switch(extended_opcode){
+
+        // SWAP n
+        case 0x37: swap_nibble(&cpu_p->AF.hi, &cpu_p->AF.lo); return 8;
+        case 0x30: swap_nibble(&cpu_p->BC.hi, &cpu_p->AF.lo); return 8;
+        case 0x31: swap_nibble(&cpu_p->BC.lo, &cpu_p->AF.lo); return 8;
+        case 0x32: swap_nibble(&cpu_p->DE.hi, &cpu_p->AF.lo); return 8;
+        case 0x33: swap_nibble(&cpu_p->DE.lo, &cpu_p->AF.lo); return 8;
+        case 0x34: swap_nibble(&cpu_p->HL.hi, &cpu_p->AF.lo); return 8;
+        case 0x35: swap_nibble(&cpu_p->HL.lo, &cpu_p->AF.lo); return 8;
+        case 0X36: swap_nibble_memory(cpu_p->memory_p, &cpu_p->AF.lo, get_registers_word(&cpu_p->HL)); return 16;
+
+    }
     return 0;
 }
 
@@ -761,6 +790,36 @@ static void add_16_bit_sp(cpu *cpu_p, cpu_register *SP_p, cpu_register *AF_p){
         AF_p->lo = CLEAR_BIT(AF_p->lo, HALF_CARRY_FLAG);
     }
 
+}
+
+static void swap_nibble(byte *register_p, byte *F_p){
+
+    byte upper_nibble = *register_p & 0xF0;
+    byte lower_nibble = *register_p & 0x0F;
+    byte swapped_nibble = (lower_nibble << 4) | upper_nibble;
+    
+    // flag configuration
+    *F_p = 0;
+    if (swapped_nibble == 0){
+        *F_p = SET_BIT(*F_p, ZERO_FLAG);
+    }
+
+    *register_p = swapped_nibble;
+}
+static void swap_nibble_memory(memory_map *memory_p, byte *F_p, word address){
+
+    byte data = read_memory(memory_p, address);
+    byte upper_nibble = data & 0xF0;
+    byte lower_nibble = data & 0x0F;
+    byte swapped_nibble = (lower_nibble << 4) | upper_nibble;
+
+    // flag configuration
+    *F_p = 0;
+    if (swapped_nibble == 0){
+        *F_p = SET_BIT(*F_p, ZERO_FLAG);
+    }
+
+    write_memory(memory_p, address, swapped_nibble);
 }
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
