@@ -66,11 +66,14 @@ static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
 static void jp_hl(cpu *cpu_p);
 static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
 static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address);
+static word pop_word_from_stack(memory_map *memory_p, cpu_register *SP_p);
 static void call(cpu *cpu_p, byte* F_p, byte has_condition, byte condition, byte flag);
+static void rst(cpu *cpu_p, byte n);
+static void ret(cpu *cpu_p, byte *F_p, cpu_register *SP_p, byte has_condition, byte condition, byte flag);
+static void reti(cpu *cpu_p, cpu_register *SP_p);
 static word address;
 static byte *register_p;
 static byte data;
-
 
 cpu *initialize_cpu(memory_map *memory_p){
     
@@ -92,7 +95,6 @@ int execute_next_opcode(cpu *cpu_p){
 int execute_opcode(cpu *cpu_p, byte opcode){
     
     switch(opcode){
-        
         // LD r, n when n == immediate 8 bit
         case 0x3E: load_immediate_8_bit(cpu_p, &cpu_p->AF.hi); return 8;
         case 0x06: load_immediate_8_bit(cpu_p, &cpu_p->BC.hi); return 8;
@@ -430,9 +432,29 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0xCC: call(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, ZERO_FLAG); return 12; 
         case 0xD4: call(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, CARRY_FLAG); return 12;
         case 0xDC: call(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 12;
+
+        // RESTART
+        case 0xC7: rst(cpu_p, 0x00); return 32;
+        case 0xCF: rst(cpu_p, 0x08); return 32;
+        case 0xD7: rst(cpu_p, 0x10); return 32;
+        case 0xDF: rst(cpu_p, 0x18); return 32;
+        case 0xE7: rst(cpu_p, 0x20); return 32;
+        case 0xEF: rst(cpu_p, 0x28); return 32;
+        case 0xF7: rst(cpu_p, 0x30); return 32;
+        case 0xFF: rst(cpu_p, 0x38); return 32;
+
+        // RETURN
+        case 0xC9: ret(cpu_p, &cpu_p->AF.lo, &cpu_p->SP, FALSE, FALSE, 0); return 8; 
+        case 0xC0: ret(cpu_p, &cpu_p->AF.lo, &cpu_p->SP, TRUE, FALSE, ZERO_FLAG); return 8; 
+        case 0xC8: ret(cpu_p, &cpu_p->AF.lo, &cpu_p->SP, TRUE, TRUE, ZERO_FLAG); return 8; 
+        case 0xD0: ret(cpu_p, &cpu_p->AF.lo, &cpu_p->SP, TRUE, FALSE, CARRY_FLAG); return 8; 
+        case 0xD8: ret(cpu_p, &cpu_p->AF.lo, &cpu_p->SP, TRUE, TRUE, CARRY_FLAG); return 8; 
         
+        // RETI
+        case 0xD9: reti(cpu_p, &cpu_p->SP); return 8;
     }
 
+    printf("ERROR : OPCODE NOT FOUNND : %u", opcode);
     return 0;
 }
 
@@ -722,6 +744,8 @@ static int execute_extended_opcode(cpu *cpu_p){
         case 0xFE: set_memory(6, cpu_p->memory_p, get_registers_word(&cpu_p->HL)); return 16;
         case 0xFF: set(7, &cpu_p->AF.hi); return 8;
     }
+
+    printf("ERROR : EXTENDED OPCODE NOT FOUNND : %u", extended_opcode);
     return 0;
 }
 
@@ -854,7 +878,6 @@ static void add_8_bit(cpu_register *AF_p, byte data){
 
     AF_p->hi = result;
 }
-
 
 static void sub_8_bit(cpu_register *AF_p, byte data){
     
@@ -1715,6 +1738,41 @@ static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word ad
     
 }
 
+static word pop_word_from_stack(memory_map *memory_p, cpu_register *SP_p){
+    word sp_address = get_registers_word(SP_p);
+    sp_address++;
+    byte lo_byte = read_memory(memory_p, sp_address);
+    sp_address++;
+    byte hi_byte = read_memory(memory_p, sp_address);
+
+    set_registers_word(SP_p, sp_address);
+
+    word result = (hi_byte << 8) | lo_byte;
+    return result;
+}
+
+static void rst(cpu *cpu_p, byte n){
+    push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, cpu_p->PC);
+    cpu_p->PC = n;
+}
+
+static void ret(cpu *cpu_p, byte *F_p, cpu_register *SP_p, byte has_condition, byte condition, byte flag){
+    
+    if (!has_condition){
+        cpu_p->PC = pop_word_from_stack(cpu_p->memory_p, SP_p);
+        return;
+    }
+
+    if (TEST_BIT(*F_p, flag) == condition){
+        cpu_p->PC = pop_word_from_stack(cpu_p->memory_p, SP_p);
+    }
+}
+
+static void reti(cpu *cpu_p, cpu_register *SP_p){
+    word jump_address = pop_word_from_stack(cpu_p->memory_p, SP_p);
+    cpu_p->PC = jump_address;
+    cpu_p->interrupt_enable = TRUE;
+}
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
     

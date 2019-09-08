@@ -21,6 +21,7 @@ typedef struct cpu {
     word PC;
     byte halted;
     byte pending_interrupt_enable;
+    byte interrupt_enable;
 
 } cpu;
 
