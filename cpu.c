@@ -62,6 +62,9 @@ static void set(byte position, byte *R_p);
 static void set_memory(byte position, memory_map *memory_p, word address);
 static void res(byte position, byte *R_p);
 static void res_memory(byte position, memory_map *memory_p, word address);
+static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
+static void jp_hl(cpu *cpu_p);
+static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
 static word address;
 static byte *register_p;
 static byte data;
@@ -398,6 +401,28 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         // right rotation
         case 0x0F: rrc(&cpu_p->AF.hi, &cpu_p->AF); return 4;
         case 0x1F: rr(&cpu_p->AF.hi, &cpu_p->AF.lo); return 4;
+
+        // JUMPs
+
+        // JP nn
+        case 0xC3: jp(cpu_p, &cpu_p->AF.lo, FALSE, FALSE, 0); return 12;
+        // JP cc, nn
+        case 0xC2: jp(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, ZERO_FLAG); return 12;
+        case 0xCA: jp(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, ZERO_FLAG); return 12; 
+        case 0xD2: jp(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, CARRY_FLAG); return 12;
+        case 0xDA: jp(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 12;
+
+        // JP (HL)
+        case 0xE9: jp_hl(cpu_p); return 4;
+        
+        // JR n
+        case 0x18: jr(cpu_p, &cpu_p->AF.lo, FALSE, FALSE, 0); return 8;
+        case 0x20: jr(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, ZERO_FLAG); return 8;
+        case 0x28: jr(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, ZERO_FLAG); return 8;
+        case 0x30: jr(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, CARRY_FLAG); return 8;
+        case 0x38: jr(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 8;
+        
+        
     }
 
     return 0;
@@ -1623,6 +1648,36 @@ static void res_memory(byte position, memory_map *memory_p, word address){
     byte result = CLEAR_BIT(data, position);
     write_memory(memory_p, address, result);
 }
+
+static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag){
+    word address = get_immediate_16_bit(cpu_p);
+
+    if (!has_condition){
+        cpu_p->PC = address;
+    }
+
+    if (TEST_BIT(*F_p, flag) == condition){
+        cpu_p->PC = address;
+    }
+}
+
+static void jp_hl(cpu *cpu_p){
+    cpu_p->PC = get_registers_word(&cpu_p->HL);
+}
+
+static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag){
+    signed_byte value = (signed_byte) get_immediate_8_bit(cpu_p);
+
+    if (!has_condition){
+        cpu_p->PC += value;
+    }
+
+    if (TEST_BIT(*F_p, flag) == condition){
+        cpu_p->PC += value;
+    }
+}
+
+
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
     
