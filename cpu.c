@@ -65,6 +65,8 @@ static void res_memory(byte position, memory_map *memory_p, word address);
 static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
 static void jp_hl(cpu *cpu_p);
 static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
+static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address);
+static void call(cpu *cpu_p, byte* F_p, byte has_condition, byte condition, byte flag);
 static word address;
 static byte *register_p;
 static byte data;
@@ -422,6 +424,12 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0x30: jr(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, CARRY_FLAG); return 8;
         case 0x38: jr(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 8;
         
+        // CALL
+        case 0xCD: call(cpu_p, &cpu_p->AF.lo, FALSE, FALSE, 0); return 12;
+        case 0xC4: call(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, ZERO_FLAG); return 12;
+        case 0xCC: call(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, ZERO_FLAG); return 12; 
+        case 0xD4: call(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, CARRY_FLAG); return 12;
+        case 0xDC: call(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 12;
         
     }
 
@@ -1654,6 +1662,7 @@ static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
 
     if (!has_condition){
         cpu_p->PC = address;
+        return;
     }
 
     if (TEST_BIT(*F_p, flag) == condition){
@@ -1670,6 +1679,7 @@ static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
 
     if (!has_condition){
         cpu_p->PC += value;
+        return;
     }
 
     if (TEST_BIT(*F_p, flag) == condition){
@@ -1677,6 +1687,33 @@ static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
     }
 }
 
+static void call(cpu *cpu_p, byte* F_p, byte has_condition, byte condition, byte flag){
+    word address = get_immediate_16_bit(cpu_p);
+    
+    if (!has_condition){
+        push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, cpu_p->PC);
+        cpu_p->PC = address;
+        return;
+    }
+
+    if (TEST_BIT(*F_p, flag) == condition){
+        push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, cpu_p->PC);
+        cpu_p->PC = address;
+    }
+}
+
+
+static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address){
+    byte hi_byte = address >> 8;
+    byte lo_byte = address & 0xFF;
+    word sp_address = get_registers_word(SP_p);
+    sp_address--;
+    write_memory(memory_p, sp_address, hi_byte);
+    sp_address--;
+    write_memory(memory_p, sp_address, lo_byte);
+    set_registers_word(SP_p, sp_address);
+    
+}
 
 
 void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
