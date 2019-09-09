@@ -41,13 +41,13 @@ byte read_memory(memory_map *memory_p, word address){
     // reading from ROM switching memory bank
     if ((address >= 0x4000) && (address <= 0x7FFF)){
         word new_address = address - 0x4000;
-        printf("\n READ MEMORY --- CURRENT ROM BANK : %u\n", memory_p->current_rom_bank);
+        //printf("\n READ MEMORY --- CURRENT ROM BANK : %u\n", memory_p->current_rom_bank);
         return memory_p->cartridge_p->cartridge_memory[new_address + (memory_p->current_rom_bank * 0x4000)];
     }
     // reading from External RAM memory bank
     else if ((address >= 0xA000) && (address <= 0xBFFF)){
         word new_address = address - 0xA000;
-        printf("\n READ MEMORY --- CURRENT RAM BANK : %u\n", memory_p->current_ram_bank);
+        //printf("\n READ MEMORY --- CURRENT RAM BANK : %u\n", memory_p->current_ram_bank);
         return memory_p->ram_banks[new_address + (memory_p->current_ram_bank * 0x2000)];
     }
     return memory_p->memory[address];
@@ -56,7 +56,7 @@ byte read_memory(memory_map *memory_p, word address){
 void write_memory(memory_map *memory_p, word address, byte data){
     // addresses 0x0000 - 0x8000 {BANK0, switching BANK N} are read-only memory
     if (address < 0x8000){
-        printf("\n WRITE MEMORY --- BANK SWITCHING\n");
+        //printf("\n WRITE MEMORY --- BANK SWITCHING\n");
         handle_bank_switching(memory_p, address, data);
     }
     // writing in external RAM bank
@@ -69,7 +69,7 @@ void write_memory(memory_map *memory_p, word address, byte data){
     // addresses 0xE000 - 0xFE00 are echoed with addresses 0xC000-0xE000 (Internal RAM)
     else if ((address >= 0xE000) && (address < 0xFE00)){
         memory_p->memory[address] = data;
-        printf("\n WRITE MEMORY --- ECHO\n");
+        //printf("\n WRITE MEMORY --- ECHO\n");
         write_memory(memory_p, (address - 0x2000), data);
     }
     // addresses 0xFEA0 - 0xFEFF {OAM, I/O, HRAM} are restricted
