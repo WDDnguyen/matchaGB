@@ -65,8 +65,6 @@ static void res_memory(byte position, memory_map *memory_p, word address);
 static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
 static void jp_hl(cpu *cpu_p);
 static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag);
-static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address);
-static word pop_word_from_stack(memory_map *memory_p, cpu_register *SP_p);
 static void call(cpu *cpu_p, byte* F_p, byte has_condition, byte condition, byte flag);
 static void rst(cpu *cpu_p, byte n);
 static void ret(cpu *cpu_p, byte *F_p, cpu_register *SP_p, byte has_condition, byte condition, byte flag);
@@ -1726,7 +1724,7 @@ static void call(cpu *cpu_p, byte* F_p, byte has_condition, byte condition, byte
 }
 
 
-static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address){
+void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address){
     byte hi_byte = address >> 8;
     byte lo_byte = address & 0xFF;
     word sp_address = get_registers_word(SP_p);
@@ -1738,7 +1736,7 @@ static void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word ad
     
 }
 
-static word pop_word_from_stack(memory_map *memory_p, cpu_register *SP_p){
+word pop_word_from_stack(memory_map *memory_p, cpu_register *SP_p){
     word sp_address = get_registers_word(SP_p);
     sp_address++;
     byte lo_byte = read_memory(memory_p, sp_address);

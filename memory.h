@@ -7,6 +7,10 @@
 #define MEMORY_SIZE 0x10000 
 #define RAM_BANK_SIZE 0x8000
 
+#define INTERRUPT_ENABLE_INDEX 0xFFFF
+#define INTERRUPT_REQUEST_INDEX 0xFF0F
+#define MAX_INTERRUPTS 4
+
 typedef struct memory_map{
     cartridge *cartridge_p;
     byte memory[MEMORY_SIZE];
