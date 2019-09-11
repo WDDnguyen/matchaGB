@@ -11,6 +11,10 @@
 #define INTERRUPT_REQUEST_INDEX 0xFF0F
 #define MAX_INTERRUPTS 4
 
+#define TIMA_INDEX 0xFF05
+#define TMA_INDEX 0xFF06
+#define TMC_INDEX 0xFF07 
+
 typedef struct memory_map{
     cartridge *cartridge_p;
     byte memory[MEMORY_SIZE];

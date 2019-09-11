@@ -4,6 +4,10 @@
 #include "environment.h"
 #include "memory.h"
 
+#define CPU_FREQUENCY 60
+#define CPU_MAX_CYCLES 4194304
+#define CPU_MAX_CYCLES_PER_SECOND CPU_MAX_CYCLES / CPU_FREQUENCY
+
 typedef union cpu_register {
     struct {
         byte lo;
