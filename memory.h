@@ -15,6 +15,11 @@
 #define TMA_INDEX 0xFF06
 #define TMC_INDEX 0xFF07 
 
+#define LCDC_INDEX 0xFF40
+#define LCDC_STATUS_INDEX 0xFF41
+#define LY_INDEX 0xFF44 // indicate vertical line between 0 - 153 
+#define LYC_INDEX 0xFF45
+
 typedef struct memory_map{
     cartridge *cartridge_p;
     byte memory[MEMORY_SIZE];

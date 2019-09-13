@@ -13,6 +13,7 @@
 #define SET_BIT(value, position) ((value) | (1 << (position)))
 #define CLEAR_BIT(value, position) ((value) & (~(1 << position)))	
 
+typedef int bool;
 typedef unsigned char byte;
 typedef char signed_byte;
 typedef unsigned short word;

@@ -72,6 +72,14 @@ void write_memory(memory_map *memory_p, word address, byte data){
         //printf("\n WRITE MEMORY --- ECHO\n");
         write_memory(memory_p, (address - 0x2000), data);
     }
+
+    else if (address == 0xFF04){
+        memory_p->memory[address] = 0;
+    }
+    
+    else if (address == 0xFF44){
+        memory_p->memory[address] = 0;
+    }
     // addresses 0xFEA0 - 0xFEFF {OAM, I/O, HRAM} are restricted
     else if ((address >= 0xFEA0) && (address < 0xFEFF)){
         return;
