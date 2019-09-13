@@ -24,6 +24,7 @@ static void switch_rom_bank_low(memory_map *memory_p, byte data, byte mbc_type);
 static void switch_rom_bank_high(memory_map *memory_p, byte data);
 static void switch_ram_bank(memory_map *memory_p, byte data);
 static void select_rom_ram_mode(memory_map *memory_p, byte data);
+static void dma_transfer(memory_map *memory_p, byte data);
 
 memory_map *initialize_memory(cartridge *cartride_p){
     
@@ -76,9 +77,13 @@ void write_memory(memory_map *memory_p, word address, byte data){
     else if (address == 0xFF04){
         memory_p->memory[address] = 0;
     }
-    
+
     else if (address == 0xFF44){
         memory_p->memory[address] = 0;
+    }
+
+    else if (address == 0xFF46){
+        dma_transfer(memory_p, data);
     }
     // addresses 0xFEA0 - 0xFEFF {OAM, I/O, HRAM} are restricted
     else if ((address >= 0xFEA0) && (address < 0xFEFF)){
@@ -195,6 +200,14 @@ static void select_rom_ram_mode(memory_map *memory_p, byte data){
     memory_p->rom_banking = ((data & 0x1) == 0) ? TRUE : FALSE;
     if (memory_p->rom_banking){
         memory_p->current_ram_bank = 0;
+    }
+}
+
+// in mode 2 of LCD, dma copies data to the OAM without the main program doing it.
+static void dma_transfer(memory_map *memory_p, byte data){
+    word address = data << 8; // multiply by 2^8
+    for (int i = 0 ; i < 0xA0; i++){
+        write_memory(memory_p, 0xFE00+i, read_memory(memory_p, address +i));
     }
 }
 
