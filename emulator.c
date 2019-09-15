@@ -22,6 +22,13 @@ static int scanline_counter = 456;
 static void set_lcd_status(cpu *cpu_p);
 static bool lcd_enabled(memory_map *memory_p);
 static void update_graphics(cpu *cpu_p, int cycles);
+static void render_sprites(memory_map *memory_p, byte lcdc);
+static void render_tiles(memory_map *memory_p, byte lcdc);
+static int bit_get_value(byte data, int position);
+byte get_color(memory_map *memory_p, byte column_number, word address);
+static void draw_scanline(memory_map *memory_p);
+
+static byte screen_data[160][143][3];
 
 int main(void){
 
@@ -204,7 +211,7 @@ static void update_graphics(cpu *cpu_p, int cycles){
         }
 
         else if (current_line < 144){
-            //draw_scanline();
+            draw_scanline(cpu_p->memory_p);
         }
     }
 }
@@ -289,4 +296,350 @@ static void set_lcd_status(cpu *cpu_p){
 static bool lcd_enabled(memory_map *memory_p){
     bool enabled = TEST_BIT(read_memory(memory_p, LCDC_INDEX), 7);
     return enabled;
+}
+
+static void draw_scanline(memory_map *memory_p){
+    byte lcdc = read_memory(memory_p, LCDC_INDEX);
+    
+    // background
+    if (TEST_BIT(lcdc, 0)){
+        render_tiles(memory_p, lcdc);
+    }
+
+    // sprite
+    if (TEST_BIT(lcdc, 1)){
+        render_sprites(memory_p, lcdc);
+    }
+}
+
+// if the background layout give an unsigned tile identifier as 0 then the tile would be between 0x800-0x800F
+
+// algorithm to write region 0x800 - 0x97FF - if identifier is 0 then memory region is 0x9000- 0x900F   beside of 0x8800 - 0x880F
+//word tile_address = VRAM_INDEX + (tile_identifier + offset * TILE_SIZE);
+
+// tile in memory needs 16 bytes of data
+// if two bytes of data form 1 line then, need to combine 2 bytes to form a break down of each pixel in the 8 pixel line 
+
+/*
+pixel# = 1 2 3 4 5 6 7 8
+data 2 = 1 0 1 0 1 1 1 0
+data 1 = 0 0 1 1 0 1 0 1
+
+Pixel 1 colour id: 10
+Pixel 2 colour id: 00
+Pixel 3 colour id: 11
+Pixel 4 colour id: 01
+Pixel 5 colour id: 10
+Pixel 6 colour id: 11
+Pixel 7 colour id: 10
+Pixel 8 colour id: 01
+
+only 4 possible color is  00, 01, 10, 11
+- need to map to correct color
+  - This is what palettes are used, (palette are not fixed), the programmer can change the mapping
+  - This means you can change the colour of tiles and sprites without the tile data.
+    - Can amke cool special effects 
+
+    - Background has monochrome color palette located in 0xFF47
+    - Sprite can have 2 palettes 0xFF48 0xFF49
+      - Can use white as transparret 
+
+
+    - Every 2 bits in the palette data represent a colour
+        - Bit 7-6 colour id 11 : black
+        - Bit 5-4 color id 10 : dark gray
+        - Bit 3-2 color id 01 : light gray
+        - Bit 1-0 color id 00 : white
+
+ */
+
+static void render_tiles(memory_map *memory_p, byte lcdc){
+    word tile_data = 0;
+    word background_memory = 0;
+    bool unsig = TRUE;
+
+    // where to draw the visial area and the window
+    byte scroll_y = read_memory(memory_p, SCROLL_Y_INDEX);
+    byte scroll_x = read_memory(memory_p, SCROLL_X_INDEX);
+    byte window_y = read_memory(memory_p, WINDOW_Y_INDEX);
+    byte window_x = read_memory(memory_p, WINDOW_X_INDEX);
+    
+    bool windowed = FALSE;
+
+    if (TEST_BIT(lcdc, 5)){
+        // check is current scanline is within the window Y
+        if (window_y <= read_memory(memory_p, LY_INDEX)){
+            windowed = TRUE;
+        }
+    }
+
+    // background and window tile data selection
+    if (TEST_BIT(lcdc, 4)){
+        tile_data = 0x8000;
+    } else {
+        // Selecting 0x8800 - 0x97FF tile identifier are SIGNED 
+        tile_data = 0x8800;
+        unsig = FALSE;
+    }
+
+    if (!windowed){
+        // which background memory
+        if (TEST_BIT(lcdc, 3)){
+            background_memory = 0x9C00;
+        } else {
+            background_memory = 0x9800;
+        }
+    } else {
+        // which window memory
+        if (TEST_BIT(lcdc, 6)){
+            background_memory = 0x9C00;
+        } else {
+            background_memory = 0x9800;
+        }
+    }
+
+    byte y_position = 0;
+    
+    // y position used to  calce which 32 vertical tiles the current scanline is drawing
+    if (!windowed){
+        y_position = scroll_y + read_memory(memory_p, LY_INDEX);
+    } else {
+        y_position = read_memory(memory_p, LY_INDEX) - window_y;
+    }
+
+    // which 8 vertical pixel are currently tile is the scanline on - recheck
+    word tile_row = (((byte) (y_position / 8)) * 32);
+
+    // draw the 160 horizontal pixels for the scanline
+    for (int pixel = 0; pixel < 160; pixel++){
+        byte x_position = pixel + scroll_x;
+
+        // translate the current x position to window space if necessary
+        if (windowed){
+            if (pixel >= window_x){
+                x_position = pixel - window_x;
+            }
+        }
+        // which of the 32 horizontal tile does this x_position fall within
+        word tile_column = (x_position / 8);
+        signed_word tile_number;
+
+        // get tile identity number and check if signed or unsigned
+
+        word tile_address = background_memory + tile_row + tile_column;
+        if (unsig){
+            tile_number = (byte) read_memory(memory_p, tile_address);
+        } else {
+            tile_number = (signed_byte) read_memory(memory_p, tile_address);
+        }
+
+        // find where the tile identifier is in memory
+        word tile_location = tile_data;
+
+        if (unsig){
+            tile_location += (tile_number * TILE_SIZE);
+        } else {
+            tile_location += ((tile_number + 128) * TILE_SIZE);
+        }
+
+        // find correct vertical line of the tile to get the tile data from memory
+        byte line = y_position % 8;
+        line *= 2; // each vertical line takes 2 bytes of memory
+        byte data1 = read_memory(memory_p, tile_location + line);
+        byte data2 = read_memory(memory_p, tile_location + line + 1);
+
+        // pixel 0 in the tile is 7 of data 1 and data 2
+        int color_bit = x_position & 8;
+        color_bit -= 7;
+        color_bit *= -1;
+
+        // combine data 2 and data 1 to get color id for this pixel of the tile
+        int color_number = bit_get_value(data2, color_bit);
+        color_number <<= 1;
+        color_number |= bit_get_value(data1, color_bit);
+
+        // now we have the color id - get the actual color from palette 0xFF47
+
+
+        // get color 
+        byte col = get_color(memory_p, color_number, BACKGROUND_PALETTE);
+        int red = 0;
+        int green = 0;
+        int blue = 0;
+
+        // setup RGB values
+        
+        switch(col){
+            case 0 : red = 255; green = 255;; blue = 255; break; // WHITE
+            case 1: red = 0xCC; green = 0xCC ; blue = 0xCC; break ; // LIGHT GRAY
+            case 2:	red = 0x77; green = 0x77 ; blue = 0x77; break ; // DARK GRAY
+        }
+        
+
+        int final_y = read_memory(memory_p, LY_INDEX);
+
+        // safety check that in bound 
+        if ((final_y < 0 ) || (final_y > 143) || (pixel < 0) || (pixel > 159)){
+            continue;
+        }
+
+        screen_data[pixel][final_y][0] = red;
+        screen_data[pixel][final_y][1] = green;
+        screen_data[pixel][final_y][2] = blue;
+
+    }
+}
+
+
+byte get_color(memory_map *memory_p, byte column_number, word address){
+    byte result = 0;
+    byte palette = read_memory(memory_p, address);
+    int hi = 0;
+    int lo = 0;
+
+    // which bit of the color palette does the color id map to
+    switch(column_number){
+        case 0: hi = 1; lo = 0; break;
+        case 1: hi = 3; lo = 2; break;
+        case 2: hi = 5; lo = 4; break;
+        case 3: hi = 7; lo = 6; break;
+    }
+
+    // use the palette to get the color
+    int color = 0;
+    color = bit_get_value(palette, hi) << 1;
+    color |= bit_get_value(palette, lo);
+
+    //convert the game color to emulator color
+    switch(color){
+        case 0: result = 0; break; // WHITE
+        case 1: result = 1; break; // LIGHT_GRAY
+        case 2: result = 2; break; // DARK_GRAY 
+        case 3: result = 3; break; // BLACK 
+    }
+
+    return result;
+}
+
+static int bit_get_value(byte data, int position){
+    byte mask = 1 << position ;
+	return ( data & mask ) ? 1 : 0 ;
+}
+
+/* all sprites located in 0x8000-0x8FFF
+all sprites identifiers are unsigned value so easy to find
+40 tiles located in 0x8000-0x8FFF
+scan through them all and check their attribites to find where they rendered
+sprite attribute found in attribute table in 0xFE00-0xFE9F
+Each sprite has 4 bytes associated to it 
+
+0: Sprite Y Position: Position of the sprite on the Y axis of the viewing display minus 16
+1: Sprite X Position: Position of the sprite on the X axis of the viewing display minus 8
+2: Pattern number: This is the sprite identifier used for looking up the sprite data in memory region 0x8000-0x8FFF
+3: Attributes:
+    Bit7: Sprite to Background Priority
+        - 0 then sprite rendered above the background and the window.
+        - 1 hide behind the background
+    Bit6: Y flip
+      - sprite becomes upside down
+    Bit5: X flip
+      - change direction of character
+    Bit4: Palette number
+      - Sprite can either be in palette 0xFF48 or 0xFF49
+    Bit3: Not used in standard gameboy
+    Bit2-0: Not used in standard gameboy
+
+A sprite can be 8x8 pixel or 8x16 pixels
+
+*/
+
+static void render_sprites(memory_map *memory_p, byte lcdc){
+
+    // spirte size configuration
+    bool use8x16 = FALSE;
+    if (TEST_BIT(lcdc, 2)){
+        use8x16 = TRUE;
+    }
+
+    for (int sprite = 0; sprite < 40; sprite++){
+        // sprite has 4 bytes in OAM table
+        byte index = sprite * 4;
+        byte y_position = read_memory(memory_p, OAM_INDEX + index) - 16;
+        byte x_position = read_memory(memory_p, OAM_INDEX + index + 1) - 8;
+        byte tile_location = read_memory(memory_p, OAM_INDEX + index + 2);
+        byte attributes = read_memory(memory_p, OAM_INDEX + index + 3);
+
+        bool y_flip = TEST_BIT(attributes, 6);
+        bool x_flip = TEST_BIT(attributes, 5);
+
+        int scanline = read_memory(memory_p, LY_INDEX);
+
+        int y_size = 8;
+        if (use8x16){
+            y_size = 16;
+        }
+
+        // does this sprite intercept with the scanline
+        if ((scanline >= y_position) && (scanline < (y_position + y_size))){
+            int line = scanline - y_position;
+
+
+            // read the sprite in backwards in the y axis
+            if (y_flip){
+                line -= y_size;
+                line *= -1;
+            }
+
+            line *=2; // same as tiles
+            word data_address = (0x8000 + (tile_location * 16)) + line;
+            byte data1 = read_memory(memory_p, data_address);
+            byte data2 = read_memory(memory_p, data_address + 1);
+
+            // its easier to read in from right to left as pixel 0 is bit 7 in the color data
+
+            for (int tile_pixel = 7; tile_pixel >= 0; tile_pixel--){
+                int color_bit = tile_pixel;
+                // read the sprite in backwards for the x acis
+                if (x_flip){
+                    color_bit -= 7;
+                    color_bit *= -1;
+                }
+
+                // the rest is the same as for tile 
+                int color_number = bit_get_value(data2, color_bit);
+                color_number <<= 1;
+                color_number |= bit_get_value(data1, color_bit);
+
+                word color_address = TEST_BIT(attributes, 4) ? 0xFF49 : 0xFF48;
+                byte col = get_color(memory_p, color_number, color_address);
+
+                // white is transparent for sprites
+                if (col == 0){
+                    continue;
+                }
+
+                int red = 0;
+                int green = 0;
+                int blue = 0;
+
+                switch(col){
+                    case 0: red =255; green=255; blue=255; break; // WHITE
+                    case 1:red =0xCC; green=0xCC; blue=0xCC; break; // LIGHT_GRAY
+                    case 2:red=0x77; green=0x77; blue=0x77; break; // DARK GRAY
+                }
+
+                int x_pixel = 0 - tile_pixel;
+                x_pixel += 7;
+
+                int pixel = x_position + x_pixel;
+
+                // sanity check
+
+                screen_data[pixel][scanline][0] = red;
+                screen_data[pixel][scanline][1] = green;
+                screen_data[pixel][scanline][2] = blue;
+                
+            }
+        }
+    }
 }

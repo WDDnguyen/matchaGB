@@ -20,6 +20,20 @@
 #define LY_INDEX 0xFF44 // indicate vertical line between 0 - 153 
 #define LYC_INDEX 0xFF45
 
+#define SCROLL_Y_INDEX 0xFF42
+#define SCROLL_X_INDEX 0xFF43
+#define WINDOW_Y_INDEX 0xFF4A
+#define WINDOW_X_INDEX 0xFF48
+
+#define TILE_SIZE 16
+#define VRAM_INDEX 0x8000
+
+#define BACKGROUND_PALETTE 0xFF47
+#define SPRITE_PALETTE_1 0xFF48
+#define SPRITE_PALETTE_2 0xFF49
+
+#define OAM_INDEX 0xFE00
+
 typedef struct memory_map{
     cartridge *cartridge_p;
     byte memory[MEMORY_SIZE];
