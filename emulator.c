@@ -1,7 +1,12 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 #include "environment.h"
 #include "cartridge.h"
 #include "memory.h"
 #include "cpu.h"
+
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 144
 
 // set by EI and ACK the interrupt setting by the IE register
 static byte interrupt_master_enable;
@@ -28,7 +33,20 @@ static int bit_get_value(byte data, int position);
 byte get_color(memory_map *memory_p, byte column_number, word address);
 static void draw_scanline(memory_map *memory_p);
 
-static byte screen_data[160][143][3];
+static byte screen_data[SCREEN_WIDTH][SCREEN_HEIGHT][3];
+
+void setup_gl_context();
+void initialize_gl_context();
+void initialize_sdl_window();
+void initialize_screen_data();
+void render_screen();
+
+
+// window to render screen 
+SDL_Window* sdl_window = NULL;
+
+// creat opengl context associated with the window
+SDL_GLContext gl_context = NULL;
 
 int main(void){
 
@@ -40,6 +58,22 @@ int main(void){
 
     // initialize timer_counter
     set_clock_frequency(memory_p);
+
+    // Screen
+    initialize_sdl_window();
+    initialize_gl_context();
+
+    SDL_Event event;
+    int iteration = 0;
+    while (iteration < 5) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_KEYDOWN) {
+                iteration++;
+            }
+        }
+        SDL_Delay(16);
+        render_screen();
+    }
 
     free(cartridge_p);
     cartridge_p = NULL;
@@ -459,8 +493,7 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
         color_number |= bit_get_value(data1, color_bit);
 
         // now we have the color id - get the actual color from palette 0xFF47
-
-
+        
         // get color 
         byte col = get_color(memory_p, color_number, BACKGROUND_PALETTE);
         int red = 0;
@@ -640,6 +673,64 @@ static void render_sprites(memory_map *memory_p, byte lcdc){
                 screen_data[pixel][scanline][2] = blue;
                 
             }
+        }
+    }
+}
+
+void setup_gl_context(){
+    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1.0, 1.0);
+    glClearColor(0, 0, 0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+    glShadeModel(GL_FLAT);
+    glEnable(GL_TEXTURE_2D);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DITHER);
+    glDisable(GL_BLEND);
+}
+
+void render_screen(){
+ 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+ 	glLoadIdentity();
+ 	glRasterPos2i(-1, 1);
+	glPixelZoom(1, -1);
+ 	glDrawPixels(160, 144, GL_RGB, GL_UNSIGNED_BYTE, screen_data);
+	SDL_GL_SwapWindow(sdl_window);
+}
+
+void initialize_sdl_window(){
+	//Initialize SDL
+	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ){
+		printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
+	}
+	else{
+        //Create window
+        sdl_window = SDL_CreateWindow( "MatchaGb", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+        if( sdl_window == NULL )
+        {
+            printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() ); 
+        }
+	}
+}
+
+void initialize_gl_context(){
+    gl_context = SDL_GL_CreateContext(sdl_window);
+    if (gl_context == NULL){
+        printf("GL context could not be created!");
+    } else {
+        setup_gl_context();
+    }
+}
+
+void initialize_screen_data(){
+    for (int x = 0; x < SCREEN_HEIGHT; x++){
+        for (int y = 0; y < SCREEN_WIDTH; y++){
+            screen_data[x][y][0] = 255;
+            screen_data[x][y][1] = 255;
+            screen_data[x][y][2] = 255;
         }
     }
 }
