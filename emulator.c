@@ -40,7 +40,7 @@ void initialize_gl_context();
 void initialize_sdl_window();
 void initialize_screen_data();
 void render_screen();
-
+void print_cpu_content(cpu *cpu_p);
 
 // window to render screen 
 SDL_Window* sdl_window = NULL;
@@ -50,28 +50,48 @@ SDL_GLContext gl_context = NULL;
 
 int main(void){
 
-    cartridge *cartridge_p = initialize_cartridge("Tetris.gb");
+    cartridge *cartridge_p = initialize_cartridge("DMG_ROM.bin");
     memory_map *memory_p = initialize_memory(cartridge_p);
     cpu *cpu_p = initialize_cpu(memory_p);
 
-    initialize_emulator_state(cpu_p, memory_p);
+    //initialize_game_state(cpu_p, memory_p);
+
+    printf("PC value %04X\n", cpu_p->PC);
 
     // initialize timer_counter
     set_clock_frequency(memory_p);
 
+    /* bootstrap testing
+        In progress :
+            - load SP
+            - clear VRAM starting from 0x9FFF to 0x8000
+     */ 
+    
+    for(int i = 0; i < 24578; i++){
+        emulate(cpu_p);
+    }
     // Screen
     initialize_sdl_window();
     initialize_gl_context();
 
     SDL_Event event;
+    bool exit_sdl = FALSE;
     int iteration = 0;
-    while (iteration < 5) {
+
+    while (iteration < 20 && exit_sdl == FALSE) {
         while (SDL_PollEvent(&event)) {
+
+            if (event.type == SDL_QUIT){
+                exit_sdl = TRUE;
+                continue;
+            }
+
             if (event.type == SDL_KEYDOWN) {
                 iteration++;
+                emulate(cpu_p);
+                print_cpu_content(cpu_p);
             }
         }
-        SDL_Delay(16);
         render_screen();
     }
 
@@ -90,12 +110,13 @@ int main(void){
 static void emulate(cpu *cpu_p){
 
     int cycles_used = 0;
-    while (cycles_used < CPU_MAX_CYCLES_PER_SECOND){
+    //while (cycles_used < CPU_MAX_CYCLES_PER_SECOND){
         int opcode_cycles = execute_next_opcode(cpu_p);
         cycles_used += opcode_cycles;
-        update_timers(cpu_p, cycles_used);
-        run_interrupts(cpu_p);
-    }
+        // update_timers(cpu_p, cycles_used);
+        // run_interrupts(cpu_p);
+        // update_graphics(cpu_p, cycles_used);
+    //}
 }
 
 static byte get_clock_frequency(memory_map *memory_p){
@@ -733,4 +754,21 @@ void initialize_screen_data(){
             screen_data[x][y][2] = 255;
         }
     }
+}
+
+void print_cpu_content(cpu *cpu_p){
+
+    printf("\n-------------------------------------\n");
+    printf("PC -- PC:0x%04X\n", cpu_p->PC);
+
+    printf("AF -- A:0x%02X F:0x%02X \n", cpu_p->AF.hi, cpu_p->AF.lo);
+    printf("BC -- B:0x%02X C:0x%02X \n", cpu_p->BC.hi, cpu_p->BC.lo);
+    printf("DE -- D:0x%02X E:0x%02X \n", cpu_p->DE.hi, cpu_p->DE.lo);
+    printf("HL -- H:0x%02X L:0x%02X \n", cpu_p->HL.hi, cpu_p->HL.lo);
+    printf("SP -- S:0x%02X P:0x%02X \n", cpu_p->SP.hi, cpu_p->SP.lo);
+
+    printf("halted -- halted:%u\n", cpu_p->halted);
+    printf("pending_interrupt_enable -- pending_interrupt_enable:%u\n", cpu_p->pending_interrupt_enable);
+    printf("interrupt_request -- interrupt_request:%u\n", cpu_p->PC);
+    printf("\n-------------------------------------\n");
 }

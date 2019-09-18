@@ -84,7 +84,8 @@ int execute_next_opcode(cpu *cpu_p){
 
     int cycles = 0;
     byte opcode = read_memory(cpu_p->memory_p, cpu_p->PC);
-    cpu_p->PC++;
+    printf("opcode to execute %02X\n:", opcode);
+    cpu_p->PC += 1;
     cycles = execute_opcode(cpu_p, opcode);
     return cycles;
 
@@ -460,6 +461,8 @@ static int execute_extended_opcode(cpu *cpu_p){
     
     byte extended_opcode = get_immediate_8_bit(cpu_p);
     
+    printf("EXTENDED OPCODE 0x%02X\n", extended_opcode);
+
     switch(extended_opcode){
 
         // SWAP n
@@ -763,16 +766,17 @@ static void load_8_bit(byte *register_p, byte data){
 }
 
 static word get_immediate_16_bit(cpu *cpu_p){
-    word address = read_memory(cpu_p->memory_p, cpu_p->PC) << 8;
+    word address = read_memory(cpu_p->memory_p, cpu_p->PC);
     cpu_p->PC++;
-    address |= read_memory(cpu_p->memory_p, cpu_p->PC);
+    address |= (read_memory(cpu_p->memory_p, cpu_p->PC) << 8);
     cpu_p->PC++;
     return address;
 }
 
 static void load_immediate_16_bit(cpu *cpu_p, cpu_register *register_p){
-    word nn = get_immediate_16_bit(cpu_p);
-    set_registers_word(register_p, nn);
+    word address = get_immediate_16_bit(cpu_p);
+    printf("LD IMMEDIATE 0x%04X\n", address);
+    set_registers_word(register_p, address);
 }
 
 word get_registers_word(cpu_register *register_p){
@@ -1681,6 +1685,8 @@ static void res_memory(byte position, memory_map *memory_p, word address){
 static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag){
     word address = get_immediate_16_bit(cpu_p);
 
+    printf("JP : 0x%04X\n", address);
+
     if (!has_condition){
         cpu_p->PC = address;
         return;
@@ -1700,11 +1706,13 @@ static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
 
     if (!has_condition){
         cpu_p->PC += value;
+        printf("JR IMMEDIATE new PC: 0x%04X\n", cpu_p->PC);
         return;
     }
 
     if (TEST_BIT(*F_p, flag) == condition){
         cpu_p->PC += value;
+        printf("JR CONDITION new PC: 0x%04X\n", cpu_p->PC);
     }
 }
 
@@ -1772,9 +1780,10 @@ static void reti(cpu *cpu_p, cpu_register *SP_p){
     cpu_p->interrupt_enable = TRUE;
 }
 
-void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
+void initialize_game_state(cpu *cpu_p, memory_map *memory_p){
     
-    cpu_p->PC = 0x100;   
+    cpu_p->PC = 0x100;
+
     cpu_p->AF.hi = 0x01;
     cpu_p->AF.lo = 0xB0;
 
@@ -1786,11 +1795,12 @@ void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
     
     cpu_p->HL.hi = 0x01;
     cpu_p->HL.lo = 0x4D;
+
     cpu_p->SP.hi = 0xFF;
     cpu_p->SP.lo = 0xFE;
 
-    memory_p->memory[0xFF05] = 0x00; 
-    memory_p->memory[0xFF06] = 0x00; 
+    memory_p->memory[TIMA_INDEX] = 0x00; 
+    memory_p->memory[TMA_INDEX] = 0x00; 
     memory_p->memory[0xFF07] = 0x00; 
     memory_p->memory[0xFF10] = 0x80; 
     memory_p->memory[0xFF11] = 0xBF; 
@@ -1810,14 +1820,14 @@ void initialize_emulator_state(cpu *cpu_p, memory_map *memory_p){
     memory_p->memory[0xFF24] = 0x77; 
     memory_p->memory[0xFF25] = 0xF3;
     memory_p->memory[0xFF26] = 0xF1; 
-    memory_p->memory[0xFF40] = 0x91; 
-    memory_p->memory[0xFF42] = 0x00; 
-    memory_p->memory[0xFF43] = 0x00; 
-    memory_p->memory[0xFF45] = 0x00; 
-    memory_p->memory[0xFF47] = 0xFC; 
-    memory_p->memory[0xFF48] = 0xFF; 
-    memory_p->memory[0xFF49] = 0xFF; 
-    memory_p->memory[0xFF4A] = 0x00; 
-    memory_p->memory[0xFF4B] = 0x00; 
-    memory_p->memory[0xFFFF] = 0x00; 
+    memory_p->memory[LCDC_INDEX] = 0x91; 
+    memory_p->memory[SCROLL_Y_INDEX] = 0x00; 
+    memory_p->memory[SCROLL_X_INDEX] = 0x00; 
+    memory_p->memory[LYC_INDEX] = 0x00; 
+    memory_p->memory[BACKGROUND_PALETTE] = 0xFC; 
+    memory_p->memory[SPRITE_PALETTE_1] = 0xFF; 
+    memory_p->memory[SPRITE_PALETTE_2] = 0xFF; 
+    memory_p->memory[WINDOW_Y_INDEX] = 0x00; 
+    memory_p->memory[WINDOW_X_INDEX] = 0x00; 
+    memory_p->memory[INTERRUPT_ENABLE_INDEX] = 0x00; 
 }

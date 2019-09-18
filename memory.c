@@ -33,7 +33,7 @@ memory_map *initialize_memory(cartridge *cartride_p){
     memory_p->current_rom_bank = 1;
     memory_p->current_ram_bank = 0;
     load_rom_to_memory_map(memory_p);
-    //print_memory(memory_p, BANK0_INDEX, 50);
+    //print_memory(memory_p, BANK0_INDEX, 300);
 
     return memory_p;
 }
@@ -55,6 +55,7 @@ byte read_memory(memory_map *memory_p, word address){
 }
 
 void write_memory(memory_map *memory_p, word address, byte data){
+    printf("Write 0x%02X to memory at 0x%04X\n", data, address);
     // addresses 0x0000 - 0x8000 {BANK0, switching BANK N} are read-only memory
     if (address < 0x8000){
         //printf("\n WRITE MEMORY --- BANK SWITCHING\n");
