@@ -24,5 +24,5 @@ typedef struct cartridge{
 } cartridge;
 
 cartridge *initialize_cartridge(char *file_name);
-
+void set_nintendo_logo_data(cartridge *cartridge_p);
 #endif

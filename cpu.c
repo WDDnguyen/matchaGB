@@ -432,6 +432,18 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0xD4: call(cpu_p, &cpu_p->AF.lo, TRUE, FALSE, CARRY_FLAG); return 12;
         case 0xDC: call(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 12;
 
+        // PUSH
+        case 0xF5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->BC)); return 16;
+        case 0xC5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->DE)); return 16;
+        case 0xD5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->DE)); return 16;
+        case 0xE5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->HL)); return 16;
+
+        // POP
+        case 0xF1: set_registers_word(&cpu_p->AF, pop_word_from_stack(cpu_p->memory_p, &cpu_p->SP)); return 12;
+        case 0xC1: set_registers_word(&cpu_p->BC, pop_word_from_stack(cpu_p->memory_p, &cpu_p->SP)); return 12;
+        case 0xD1: set_registers_word(&cpu_p->DE, pop_word_from_stack(cpu_p->memory_p, &cpu_p->SP)); return 12;
+        case 0xE1: set_registers_word(&cpu_p->HL, pop_word_from_stack(cpu_p->memory_p, &cpu_p->SP)); return 12;
+ 
         // RESTART
         case 0xC7: rst(cpu_p, 0x00); return 32;
         case 0xCF: rst(cpu_p, 0x08); return 32;
@@ -454,7 +466,8 @@ int execute_opcode(cpu *cpu_p, byte opcode){
     }
 
     printf("ERROR : OPCODE NOT FOUNND : %u", opcode);
-    return 0;
+    exit(1);
+   // return 0;
 }
 
 static int execute_extended_opcode(cpu *cpu_p){
@@ -747,12 +760,14 @@ static int execute_extended_opcode(cpu *cpu_p){
     }
 
     printf("ERROR : EXTENDED OPCODE NOT FOUNND : %u", extended_opcode);
-    return 0;
+    exit(2);
+    //return 0;
 }
 
 static void load_immediate_8_bit(cpu *cpu_p, byte *register_p){
-    byte n = get_immediate_8_bit(cpu_p);
-    *register_p = n;
+    byte data = get_immediate_8_bit(cpu_p);
+    printf("LD IMMEDIATE 8 BIT 0x%02X\n", data);
+    *register_p = data;
 }
 
 static byte get_immediate_8_bit(cpu *cpu_p){
@@ -762,6 +777,7 @@ static byte get_immediate_8_bit(cpu *cpu_p){
 }
 
 static void load_8_bit(byte *register_p, byte data){
+    printf("LOAD 0x%02X\n", data);
     *register_p = data;
 }
 
@@ -827,7 +843,6 @@ static void add_carry_8_bit(cpu_register *AF_p, byte data){
 
     result += (data + carry);
 
-
     // FLAG configurations
     AF_p->lo = 0;
     AF_p->lo = CLEAR_BIT(AF_p->lo, SUBTRACT_FLAG);
@@ -849,7 +864,6 @@ static void add_carry_8_bit(cpu_register *AF_p, byte data){
     }
 
     AF_p->hi = result;
-
 }
 
 static void add_8_bit(cpu_register *AF_p, byte data){
@@ -993,8 +1007,8 @@ static void xor_8_bit(cpu_register *AF_p, byte data){
 static void cp_8_bit(cpu_register *AF_p, byte data){
 
     AF_p->lo = 0;
-    
-    if (AF_p->hi == data){
+    byte result = AF_p->hi - data;
+    if (result == 0){
         AF_p->lo = SET_BIT(AF_p->lo, ZERO_FLAG);
     }
 
@@ -1692,7 +1706,8 @@ static void jp(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
         return;
     }
 
-    if (TEST_BIT(*F_p, flag) == condition){
+    bool flag_result = TEST_BIT(*F_p, flag) ? TRUE : FALSE;
+    if (flag_result == condition){
         cpu_p->PC = address;
     }
 }
@@ -1703,14 +1718,15 @@ static void jp_hl(cpu *cpu_p){
 
 static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte flag){
     signed_byte value = (signed_byte) get_immediate_8_bit(cpu_p);
-
+    
     if (!has_condition){
         cpu_p->PC += value;
         printf("JR IMMEDIATE new PC: 0x%04X\n", cpu_p->PC);
         return;
     }
 
-    if (TEST_BIT(*F_p, flag) == condition){
+    bool flag_result = TEST_BIT(*F_p, flag) ? TRUE : FALSE;
+    if (flag_result == condition){
         cpu_p->PC += value;
         printf("JR CONDITION new PC: 0x%04X\n", cpu_p->PC);
     }
@@ -1746,14 +1762,12 @@ void push_word_to_stack(memory_map *memory_p, cpu_register *SP_p, word address){
 
 word pop_word_from_stack(memory_map *memory_p, cpu_register *SP_p){
     word sp_address = get_registers_word(SP_p);
-    sp_address++;
     byte lo_byte = read_memory(memory_p, sp_address);
-    sp_address++;
-    byte hi_byte = read_memory(memory_p, sp_address);
+    byte hi_byte = read_memory(memory_p, sp_address + 1);
 
-    set_registers_word(SP_p, sp_address);
-
+    set_registers_word(SP_p, sp_address + 2);
     word result = (hi_byte << 8) | lo_byte;
+    printf("POPPED 0x%04X\n", result);
     return result;
 }
 

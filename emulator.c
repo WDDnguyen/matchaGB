@@ -51,6 +51,8 @@ SDL_GLContext gl_context = NULL;
 int main(void){
 
     cartridge *cartridge_p = initialize_cartridge("DMG_ROM.bin");
+    set_nintendo_logo_data(cartridge_p);
+    //cartridge *cartridge_p = initialize_cartridge("Tetris.gb");
     memory_map *memory_p = initialize_memory(cartridge_p);
     cpu *cpu_p = initialize_cpu(memory_p);
 
@@ -65,11 +67,14 @@ int main(void){
         In progress :
             - load SP
             - clear VRAM starting from 0x9FFF to 0x8000
+            - initial palette
+            - write NINTENDO LOGO + R into VRAM   51
+            - TILE MAP 132 to get to scrolling 
+            - SCROLLING 
      */ 
-    
-    for(int i = 0; i < 24578; i++){
-        emulate(cpu_p);
-    }
+    // for(int i = 0; i < (24611 + 20 + (900 + 790) + 51 + 132 )  ; i++){
+    //     emulate(cpu_p);
+    // }
     // Screen
     initialize_sdl_window();
     initialize_gl_context();
@@ -78,7 +83,7 @@ int main(void){
     bool exit_sdl = FALSE;
     int iteration = 0;
 
-    while (iteration < 20 && exit_sdl == FALSE) {
+    while (iteration < 5000 && exit_sdl == FALSE) {
         while (SDL_PollEvent(&event)) {
 
             if (event.type == SDL_QUIT){
@@ -88,11 +93,18 @@ int main(void){
 
             if (event.type == SDL_KEYDOWN) {
                 iteration++;
-                emulate(cpu_p);
+                // emulating 1 frame
+                //emulate(cpu_p);
+
+
+                int cycles = execute_next_opcode(cpu_p);
+                //cycles_used += cycles;
+                update_timers(cpu_p, cycles);
+                //run_interrupts(cpu_p);
+                //update_graphics(cpu_p, cycles);
                 print_cpu_content(cpu_p);
             }
         }
-        render_screen();
     }
 
     free(cartridge_p);
@@ -110,13 +122,14 @@ int main(void){
 static void emulate(cpu *cpu_p){
 
     int cycles_used = 0;
-    //while (cycles_used < CPU_MAX_CYCLES_PER_SECOND){
-        int opcode_cycles = execute_next_opcode(cpu_p);
-        cycles_used += opcode_cycles;
-        // update_timers(cpu_p, cycles_used);
-        // run_interrupts(cpu_p);
-        // update_graphics(cpu_p, cycles_used);
-    //}
+    while (cycles_used < CPU_MAX_CYCLES_PER_SECOND){
+        int cycles = execute_next_opcode(cpu_p);
+        cycles_used += cycles;
+        update_timers(cpu_p, cycles);
+        run_interrupts(cpu_p);
+        update_graphics(cpu_p, cycles);
+    }
+    render_screen();
 }
 
 static byte get_clock_frequency(memory_map *memory_p){
@@ -252,8 +265,13 @@ static void update_graphics(cpu *cpu_p, int cycles){
 
     if (scanline_counter <= 0){
         // move to next scanline
+
         cpu_p->memory_p->memory[LY_INDEX]++;
         byte current_line = read_memory(cpu_p->memory_p, LY_INDEX);
+        printf("CURRENT LINE %u \n", current_line);
+
+        // reset counter
+        scanline_counter = 456;
 
         // in vertical blank
         if (current_line == 144){
@@ -274,7 +292,8 @@ static void update_graphics(cpu *cpu_p, int cycles){
 static void set_lcd_status(cpu *cpu_p){
     byte status = read_memory(cpu_p->memory_p, LCDC_STATUS_INDEX);
 
-    if (lcd_enabled(cpu_p->memory_p)){
+    // if LCD is turned off
+    if (!lcd_enabled(cpu_p->memory_p)){
         // set mode to 1 when lcd is disabled and reset scanline
         scanline_counter = 456;
         cpu_p->memory_p->memory[LY_INDEX] = 0;
@@ -302,33 +321,42 @@ static void set_lcd_status(cpu *cpu_p){
     byte mode = 0;
     bool interrupted = FALSE;
 
-    if (current_line > 144){
+    if (current_line >= 144){
         mode = 1;
+        // set status 2 LSB : 01
+        // check for V blank interrupts
         status = SET_BIT(status, 0);
         status = CLEAR_BIT(status, 1);
         interrupted = TEST_BIT(status, 4);
     } else {
-        int mode2_bounds = 456-80;
-        int mode3_bounds = mode2_bounds - 172;
+        int oam_cycles = 80;
+        int vram_cycles = 172;
+        int mode2_bounds = 456 - oam_cycles;
+        int mode3_bounds = mode2_bounds - vram_cycles;
 
         // mode 2 
         if (scanline_counter >= mode2_bounds){
             mode = 2;
+            // set status 2 LSB : 10 
             status = SET_BIT(status, 1);
-            status = SET_BIT(status, 0);
+            status = CLEAR_BIT(status, 0);
             interrupted = TEST_BIT(status, 5);
         } else if (scanline_counter >= mode3_bounds){
             mode = 3;
+            // set status 2 LSB : 11 
             status = SET_BIT(status, 1);
             status = SET_BIT(status, 0);
         } else {
             mode = 0;
+            // set status 2 LSB : 00 
             status = CLEAR_BIT(status, 1);
             status = CLEAR_BIT(status, 0);
+            // check for H blank interrupt
             interrupted = TEST_BIT(status, 3);
         }
     }
 
+    // check if H blank or V Blank interrupt
     if (interrupted && (mode != current_mode)){
         service_interrupt(cpu_p, 1);
     }
@@ -338,13 +366,14 @@ static void set_lcd_status(cpu *cpu_p){
         // bit 2 (coincidence flag) is set when condition is true 
         status = SET_BIT(status, 2);
         // if bit 6 and bit 2 are enabled then request interrupt
-        if (TEST_BIT(status, 6)){
+        if (TEST_BIT(status, 6) > 0){
             request_interrupt(cpu_p, 1);
         }
     } else {
         status = CLEAR_BIT(status, 2);
     }
 
+    // update LCDC status
     write_memory(cpu_p->memory_p, LCDC_STATUS_INDEX, status);
 }
 
@@ -362,9 +391,9 @@ static void draw_scanline(memory_map *memory_p){
     }
 
     // sprite
-    if (TEST_BIT(lcdc, 1)){
-        render_sprites(memory_p, lcdc);
-    }
+    // if (TEST_BIT(lcdc, 1)){
+    //     render_sprites(memory_p, lcdc);
+    // }
 }
 
 // if the background layout give an unsigned tile identifier as 0 then the tile would be between 0x800-0x800F
@@ -417,10 +446,11 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
     byte scroll_y = read_memory(memory_p, SCROLL_Y_INDEX);
     byte scroll_x = read_memory(memory_p, SCROLL_X_INDEX);
     byte window_y = read_memory(memory_p, WINDOW_Y_INDEX);
-    byte window_x = read_memory(memory_p, WINDOW_X_INDEX);
+    byte window_x = read_memory(memory_p, WINDOW_X_INDEX) - 7;
     
     bool windowed = FALSE;
 
+    // verify if window is enabled in LCD
     if (TEST_BIT(lcdc, 5)){
         // check is current scanline is within the window Y
         if (window_y <= read_memory(memory_p, LY_INDEX)){
@@ -428,24 +458,36 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
         }
     }
 
-    // background and window tile data selection
+    /* background tile data set selection
+            bit 4 of LCD
+                0 -> 8800 - 0x97FF (UNSIGNED)
+                1 -> 0x8000 - 0x8FFF (SIGNED)
+     */ 
+
     if (TEST_BIT(lcdc, 4)){
         tile_data = 0x8000;
     } else {
-        // Selecting 0x8800 - 0x97FF tile identifier are SIGNED 
         tile_data = 0x8800;
         unsig = FALSE;
     }
 
-    if (!windowed){
-        // which background memory
+    if (windowed == FALSE){
+        /* background tile map selection
+            bit 3 of LCD 
+                0 -> 0x9800 - 0x9BFF
+                1 -> 0x9C00 - 0x9FFF
+         */
         if (TEST_BIT(lcdc, 3)){
             background_memory = 0x9C00;
         } else {
             background_memory = 0x9800;
         }
     } else {
-        // which window memory
+        /* window tile map selection
+            bit 6 of LCD
+                0 -> 0x9800 - 0x9BFF
+                1 -> 0x9C00 - 0x9FFF
+         */
         if (TEST_BIT(lcdc, 6)){
             background_memory = 0x9C00;
         } else {
@@ -455,14 +497,14 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
 
     byte y_position = 0;
     
-    // y position used to  calce which 32 vertical tiles the current scanline is drawing
-    if (!windowed){
+    // y position used to calculate which 32 vertical tiles the current scanline is drawing
+    if (windowed == FALSE){
         y_position = scroll_y + read_memory(memory_p, LY_INDEX);
     } else {
         y_position = read_memory(memory_p, LY_INDEX) - window_y;
     }
 
-    // which 8 vertical pixel are currently tile is the scanline on - recheck
+    // which 8 vertical pixel are currently tile is the scanline on 
     word tile_row = (((byte) (y_position / 8)) * 32);
 
     // draw the 160 horizontal pixels for the scanline
@@ -475,12 +517,13 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
                 x_position = pixel - window_x;
             }
         }
+
         // which of the 32 horizontal tile does this x_position fall within
         word tile_column = (x_position / 8);
         signed_word tile_number;
 
-        // get tile identity number and check if signed or unsigned
-
+        // get tile identity number based on signed or unsigned.
+        // 32x32 tiles in BG. each tile can be picked based on horizontal and vertical tile
         word tile_address = background_memory + tile_row + tile_column;
         if (unsig){
             tile_number = (byte) read_memory(memory_p, tile_address);
@@ -488,7 +531,7 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
             tile_number = (signed_byte) read_memory(memory_p, tile_address);
         }
 
-        // find where the tile identifier is in memory
+        // find the tile data related to tile identity number
         word tile_location = tile_data;
 
         if (unsig){
@@ -504,6 +547,7 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
         byte data2 = read_memory(memory_p, tile_location + line + 1);
 
         // pixel 0 in the tile is 7 of data 1 and data 2
+        // invert the position of pixel
         int color_bit = x_position & 8;
         color_bit -= 7;
         color_bit *= -1;
@@ -513,7 +557,7 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
         color_number <<= 1;
         color_number |= bit_get_value(data1, color_bit);
 
-        // now we have the color id - get the actual color from palette 0xFF47
+        // have to color for the bit; get the actual color from palette 0xFF47
         
         // get color 
         byte col = get_color(memory_p, color_number, BACKGROUND_PALETTE);
@@ -524,12 +568,12 @@ static void render_tiles(memory_map *memory_p, byte lcdc){
         // setup RGB values
         
         switch(col){
-            case 0 : red = 255; green = 255;; blue = 255; break; // WHITE
-            case 1: red = 0xCC; green = 0xCC ; blue = 0xCC; break ; // LIGHT GRAY
-            case 2:	red = 0x77; green = 0x77 ; blue = 0x77; break ; // DARK GRAY
+            case 0: red = 255; green = 255; blue = 255; break; // WHITE
+            case 1: red = 0xCC; green = 0xCC; blue = 0xCC; break ; // LIGHT GRAY
+            case 2:	red = 0x77; green = 0x77; blue = 0x77; break ; // DARK GRAY
         }
         
-
+        // read current line
         int final_y = read_memory(memory_p, LY_INDEX);
 
         // safety check that in bound 
@@ -577,7 +621,8 @@ byte get_color(memory_map *memory_p, byte column_number, word address){
 
 static int bit_get_value(byte data, int position){
     byte mask = 1 << position ;
-	return ( data & mask ) ? 1 : 0 ;
+    int bit = (data & mask) ? 1 : 0;
+	return bit;
 }
 
 /* all sprites located in 0x8000-0x8FFF
@@ -729,7 +774,7 @@ void initialize_sdl_window(){
 	}
 	else{
         //Create window
-        sdl_window = SDL_CreateWindow( "MatchaGb", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+        sdl_window = SDL_CreateWindow( "matchaGb", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
         if( sdl_window == NULL )
         {
             printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() ); 
@@ -758,7 +803,6 @@ void initialize_screen_data(){
 
 void print_cpu_content(cpu *cpu_p){
 
-    printf("\n-------------------------------------\n");
     printf("PC -- PC:0x%04X\n", cpu_p->PC);
 
     printf("AF -- A:0x%02X F:0x%02X \n", cpu_p->AF.hi, cpu_p->AF.lo);
@@ -767,8 +811,8 @@ void print_cpu_content(cpu *cpu_p){
     printf("HL -- H:0x%02X L:0x%02X \n", cpu_p->HL.hi, cpu_p->HL.lo);
     printf("SP -- S:0x%02X P:0x%02X \n", cpu_p->SP.hi, cpu_p->SP.lo);
 
-    printf("halted -- halted:%u\n", cpu_p->halted);
-    printf("pending_interrupt_enable -- pending_interrupt_enable:%u\n", cpu_p->pending_interrupt_enable);
-    printf("interrupt_request -- interrupt_request:%u\n", cpu_p->PC);
+    printf("halted -- :%u\n", cpu_p->halted);
+    printf("pending_interrupt_enable -- :%u\n", cpu_p->pending_interrupt_enable);
+    printf("interrupt_request -- :%u\n", cpu_p->PC);
     printf("\n-------------------------------------\n");
 }
