@@ -90,7 +90,7 @@ int main(void){
     bool exit_sdl = FALSE;
     int iteration = 0;
 
-    while (iteration < 5000 && exit_sdl == FALSE) {
+    while (exit_sdl == FALSE) {
         while (SDL_PollEvent(&event)) {
 
             if (event.type == SDL_QUIT){
@@ -99,13 +99,10 @@ int main(void){
             }
 
             if (event.type == SDL_KEYDOWN) {
-                iteration++;
 
                 // emulating 1 frame
-                //emulate(cpu_p);
-                
-                step_graphics(cpu_p, 153);
-                render_screen();
+                // step_graphics(cpu_p, 153);
+                // render_screen();
 
                 // int cycles = execute_next_opcode(cpu_p);
                 // //cycles_used += cycles;
@@ -115,8 +112,9 @@ int main(void){
                 // print_cpu_content(cpu_p);
             }
         }
+        emulate(cpu_p);
     }
-    printf("NEW iterations %d\n", iteration);
+    //printf("NEW iterations %d\n", iteration);
 
     free(cartridge_p);
     cartridge_p = NULL;
@@ -132,7 +130,6 @@ int main(void){
 
 /* bootstrap testing in steps
     In progress :
-        - Scrolling 
         - Checksum
 */ 
 void test_bootstrap_rom(cpu *cpu_p){
@@ -476,7 +473,7 @@ Scanline takes 456 cycles to complete before switching to next line
     byte window_x = read_memory(memory_p, WINDOW_X_INDEX) - 7;
     
     // testing scroll Y
-    scroll_y = 0;
+    //scroll_y = 0;
     //printf("SCROLL Y : %u\n", scroll_y);
 
     bool windowed = FALSE;
