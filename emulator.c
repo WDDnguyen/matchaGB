@@ -32,6 +32,7 @@ static void render_tiles(memory_map *memory_p, byte lcdc);
 static int bit_get_value(byte data, int position);
 byte get_color(memory_map *memory_p, byte column_number, word address);
 static void draw_scanline(memory_map *memory_p);
+static void step(cpu *cpu_p, int iterations);
 
 static byte screen_data[SCREEN_WIDTH][SCREEN_HEIGHT][3];
 
@@ -63,21 +64,30 @@ int main(void){
     // initialize timer_counter
     set_clock_frequency(memory_p);
 
-    /* bootstrap testing
-        In progress :
-            - load SP
-            - clear VRAM starting from 0x9FFF to 0x8000
-            - initial palette
-            - write NINTENDO LOGO + R into VRAM   51
-            - TILE MAP 132 to get to scrolling 
-            - SCROLLING 
-     */ 
-    // for(int i = 0; i < (24611 + 20 + (900 + 790) + 51 + 132 )  ; i++){
-    //     emulate(cpu_p);
-    // }
-    // Screen
     initialize_sdl_window();
     initialize_gl_context();
+
+    /* bootstrap testing in steps
+    
+    Done :
+        - Initialize SP: 1 iteration
+        - clear VRAM from 0x9FFF to 0x8000: 24579 iterations
+        - Audio setup : 10 iterations
+        - Initial palette, write nintendo logo into VRAM + R into Vram : 4086 iterations
+
+    In progress :
+        - TILE MAP 132 to get to scrolling 
+        - SCROLLING 
+    */ 
+
+    step(cpu_p, 1);
+    step(cpu_p, 24579);
+    //print_vram_memory(cpu_p->memory_p);
+    step(cpu_p, 10);
+    step(cpu_p, 4086);
+    //print_vram_memory(cpu_p->memory_p);
+    //step(cpu_p, 132);
+    //print_tile_map_0(memory_p);
 
     SDL_Event event;
     bool exit_sdl = FALSE;
@@ -94,8 +104,7 @@ int main(void){
             if (event.type == SDL_KEYDOWN) {
                 iteration++;
                 // emulating 1 frame
-                //emulate(cpu_p);
-
+                // emulate(cpu_p);
 
                 int cycles = execute_next_opcode(cpu_p);
                 //cycles_used += cycles;
@@ -107,6 +116,8 @@ int main(void){
         }
     }
 
+    printf("NEW iterations %d\n", iteration);
+
     free(cartridge_p);
     cartridge_p = NULL;
 
@@ -117,6 +128,17 @@ int main(void){
     cpu_p = NULL;
 
     return 0;
+}
+
+static void step(cpu *cpu_p, int iterations){
+
+    for(int i = 0; i < iterations; i++){
+        int cycles = execute_next_opcode(cpu_p);
+        //cycles_used += cycles;
+        update_graphics(cpu_p, cycles);
+        
+    }
+    print_cpu_content(cpu_p);
 }
 
 static void emulate(cpu *cpu_p){
@@ -722,9 +744,9 @@ static void render_sprites(memory_map *memory_p, byte lcdc){
                 int blue = 0;
 
                 switch(col){
-                    case 0: red =255; green=255; blue=255; break; // WHITE
-                    case 1:red =0xCC; green=0xCC; blue=0xCC; break; // LIGHT_GRAY
-                    case 2:red=0x77; green=0x77; blue=0x77; break; // DARK GRAY
+                    case 0:red =255; green=255; blue=255; break; // WHITE
+                    // case 1:red =0xCC; green=0xCC; blue=0xCC; break; // LIGHT_GRAY
+                    // case 2:red=0x77; green=0x77; blue=0x77; break; // DARK GRAY
                 }
 
                 int x_pixel = 0 - tile_pixel;
@@ -803,7 +825,7 @@ void initialize_screen_data(){
 
 void print_cpu_content(cpu *cpu_p){
 
-    printf("PC -- PC:0x%04X\n", cpu_p->PC);
+    printf("\nPC -- PC:0x%04X\n", cpu_p->PC);
 
     printf("AF -- A:0x%02X F:0x%02X \n", cpu_p->AF.hi, cpu_p->AF.lo);
     printf("BC -- B:0x%02X C:0x%02X \n", cpu_p->BC.hi, cpu_p->BC.lo);

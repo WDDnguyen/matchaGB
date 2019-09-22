@@ -84,7 +84,7 @@ int execute_next_opcode(cpu *cpu_p){
 
     int cycles = 0;
     byte opcode = read_memory(cpu_p->memory_p, cpu_p->PC);
-    printf("opcode to execute %02X\n:", opcode);
+    printf("EXECUTING OPCODE %02X: ", opcode);
     cpu_p->PC += 1;
     cycles = execute_opcode(cpu_p, opcode);
     return cycles;
@@ -433,8 +433,8 @@ int execute_opcode(cpu *cpu_p, byte opcode){
         case 0xDC: call(cpu_p, &cpu_p->AF.lo, TRUE, TRUE, CARRY_FLAG); return 12;
 
         // PUSH
-        case 0xF5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->BC)); return 16;
-        case 0xC5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->DE)); return 16;
+        case 0xF5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->AF)); return 16;
+        case 0xC5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->BC)); return 16;
         case 0xD5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->DE)); return 16;
         case 0xE5: push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, get_registers_word(&cpu_p->HL)); return 16;
 
@@ -1099,7 +1099,7 @@ static void dec_memory_8_bit(cpu *cpu_p, cpu_register *AF_p){
 }
 
 static void dec_8_bit(byte *register_p, cpu_register *AF_p){
-    
+    printf("DEC\n");
     byte result = *register_p;
     result--;
 
@@ -1366,6 +1366,7 @@ static void rl(byte *R_p, byte *F_p){
 
     *R_p <<= 1;
 
+    *F_p = 0;
     // flag configuration
     if (msb_set){
         *F_p = SET_BIT(*F_p, CARRY_FLAG);
@@ -1734,7 +1735,7 @@ static void jr(cpu *cpu_p, byte *F_p, byte has_condition, byte condition, byte f
 
 static void call(cpu *cpu_p, byte* F_p, byte has_condition, byte condition, byte flag){
     word address = get_immediate_16_bit(cpu_p);
-    
+
     if (!has_condition){
         push_word_to_stack(cpu_p->memory_p, &cpu_p->SP, cpu_p->PC);
         cpu_p->PC = address;

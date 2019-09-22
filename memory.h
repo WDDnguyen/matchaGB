@@ -47,4 +47,6 @@ typedef struct memory_map{
 memory_map *initialize_memory(cartridge *cartride_p);
 byte read_memory(memory_map *memory_p, word address);
 void write_memory(memory_map *memory_p, word address, byte byte);
+void print_vram_memory(memory_map *memory_p);
+void print_tile_map_0(memory_map *memory_p);
 #endif

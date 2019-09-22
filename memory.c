@@ -212,6 +212,36 @@ static void dma_transfer(memory_map *memory_p, byte data){
     }
 }
 
+void print_vram_memory(memory_map *memory_p){
+    int vram_size = 0x2000;
+    int column = 0;
+    for (int i = 0; i < vram_size; i++){
+        if (column > 15){
+            column = 0;
+            printf("\n");
+            printf("%04X --- ", VRAM_INDEX + i);
+        }
+        printf(" %02X", memory_p->memory[VRAM_INDEX + i]);
+        column++;
+    }
+    printf("\n");
+}
+
+void print_tile_map_0(memory_map *memory_p){
+    int tile_map_size = 0x400;
+    int column = 0;
+    for (int i = 0; i < tile_map_size; i++){
+        if (column > 15){
+            column = 0;
+            printf("\n");
+            printf("%04X --- ", 0x9800 + i);
+        }
+        printf(" %02X", memory_p->memory[0x9800 + i]);
+        column++;
+    }
+    printf("\n");
+}
+
 static void print_memory(memory_map *memory_p, word address, word print_size){
     
     printf("PRINTING MEMORY ADDRESS : %u, SIZE : %u\n", address, print_size);
@@ -224,7 +254,7 @@ static void print_memory(memory_map *memory_p, word address, word print_size){
             printf("\n");
             printf("%04x --- ", address + i);
         }
-        printf("%02x ", memory_p->memory[address + i]);
+        printf("%02X ", memory_p->memory[address + i]);
         column++;
     }
 }
