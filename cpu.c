@@ -1388,7 +1388,7 @@ static void rl_memory(memory_map *memory_p, word address, byte *F_p){
     byte msb_set = TEST_BIT(data, 7);
 
     data <<= 1;
-
+    *F_p = 0;
     // flag configuration
     if (msb_set){
         *F_p = SET_BIT(*F_p, CARRY_FLAG);
@@ -1462,7 +1462,7 @@ static void rr(byte *R_p, byte *F_p){
     *R_p >>= 1;
 
     // flag configuration
-    
+    *F_p = 0;
     if (lsb_set){
         *F_p = SET_BIT(*F_p, CARRY_FLAG);
     }
@@ -1485,6 +1485,7 @@ static void rr_memory(memory_map *memory_p, word address, byte *F_p){
     data >>= 1;
 
     // flag configuration
+    *F_p = 0;
     if (lsb_set){
         *F_p = SET_BIT(*F_p, CARRY_FLAG);
     }
